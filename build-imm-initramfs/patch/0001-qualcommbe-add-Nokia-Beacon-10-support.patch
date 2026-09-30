@@ -1,0 +1,576 @@
+From a24098c906372735afbcd3f3bfe5f0e8840b8963 Mon Sep 17 00:00:00 2001
+From: lyq1996 <lyq1996@users.noreply.github.com>
+Date: Mon, 28 Sep 2026 20:00:16 +0000
+Subject: [PATCH 1/5] qualcommbe: add Nokia Beacon 10 support
+
+Co-Authored-By: Claude Code <noreply@anthropic.com>
+---
+ target/linux/qualcommbe/config-6.18           |  15 +-
+ .../dts/ipq9574-nokia-beacon-10.dts           | 463 ++++++++++++++++++
+ target/linux/qualcommbe/image/ipq95xx.mk      |  10 +
+ .../ipq95xx/base-files/etc/board.d/02_network |   3 +
+ 4 files changed, 489 insertions(+), 2 deletions(-)
+ create mode 100644 target/linux/qualcommbe/dts/ipq9574-nokia-beacon-10.dts
+
+diff --git a/target/linux/qualcommbe/config-6.18 b/target/linux/qualcommbe/config-6.18
+index d5355fb..b8181f8 100644
+--- a/target/linux/qualcommbe/config-6.18
++++ b/target/linux/qualcommbe/config-6.18
+@@ -133,6 +133,7 @@ CONFIG_DTC=y
+ CONFIG_DT_IDLE_STATES=y
+ CONFIG_EDAC_SUPPORT=y
+ CONFIG_EXCLUSIVE_SYSTEM_RAM=y
++CONFIG_EXT4_FS=y
+ CONFIG_FIXED_PHY=y
+ CONFIG_FIX_EARLYCON_MEM=y
+ CONFIG_FRAME_POINTER=y
+@@ -195,6 +196,9 @@ CONFIG_I2C_QUP=y
+ CONFIG_IIO=y
+ CONFIG_ILLEGAL_POINTER_VALUE=0xdead000000000000
+ CONFIG_INITRAMFS_SOURCE=""
++CONFIG_INPUT=y
++CONFIG_INPUT_EVDEV=y
++CONFIG_INPUT_KEYBOARD=y
+ CONFIG_INTERCONNECT=y
+ CONFIG_INTERCONNECT_CLK=y
+ # CONFIG_INTERCONNECT_QCOM is not set
+@@ -218,6 +222,7 @@ CONFIG_IRQ_FORCED_THREADING=y
+ CONFIG_IRQ_MSI_IOMMU=y
+ CONFIG_IRQ_MSI_LIB=y
+ CONFIG_IRQ_WORK=y
++CONFIG_KEYBOARD_GPIO=y
+ # CONFIG_KPSS_XCC is not set
+ CONFIG_LEDS_TLC591XX=y
+ CONFIG_LIBFDT=y
+@@ -320,7 +325,6 @@ CONFIG_PCI_HOST_COMMON=y
+ CONFIG_PCI_MSI=y
+ CONFIG_PCI_PWRCTRL=y
+ CONFIG_PCI_PWRCTRL_SLOT=y
+-# CONFIG_PCS_QCOM_IPQ9574 is not set
+ CONFIG_PER_VMA_LOCK=y
+ CONFIG_PGTABLE_LEVELS=3
+ CONFIG_PHYLIB=y
+@@ -431,7 +435,6 @@ CONFIG_QCOM_NET_PHYLIB=y
+ # CONFIG_QCOM_OCMEM is not set
+ # CONFIG_QCOM_PDC is not set
+ CONFIG_QCOM_PIL_INFO=y
+-# CONFIG_QCOM_PPE is not set
+ # CONFIG_QCOM_Q6V5_ADSP is not set
+ CONFIG_QCOM_Q6V5_COMMON=y
+ # CONFIG_QCOM_Q6V5_MSS is not set
+@@ -642,3 +645,11 @@ CONFIG_ZONE_DMA32=y
+ CONFIG_ZSTD_COMMON=y
+ CONFIG_ZSTD_COMPRESS=y
+ CONFIG_ZSTD_DECOMPRESS=y
++CONFIG_QCOM_PPE=y
++CONFIG_PCS_QCOM_IPQ9574=y
++CONFIG_REALTEK_PHY=y
++CONFIG_LEDS_GPIO=y
++CONFIG_PSTORE=y
++CONFIG_PSTORE_RAM=y
++CONFIG_PSTORE_CONSOLE=y
++CONFIG_CRYPTO_CRC32C=y
+diff --git a/target/linux/qualcommbe/dts/ipq9574-nokia-beacon-10.dts b/target/linux/qualcommbe/dts/ipq9574-nokia-beacon-10.dts
+new file mode 100644
+index 0000000..6b468d6
+--- /dev/null
++++ b/target/linux/qualcommbe/dts/ipq9574-nokia-beacon-10.dts
+@@ -0,0 +1,463 @@
++// SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
++
++/dts-v1/;
++
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/input/input.h>
++#include <dt-bindings/leds/common.h>
++#include "ipq9574.dtsi"
++
++/ {
++	model = "Nokia Beacon 10";
++	compatible = "nokia,beacon-10", "qcom,ipq9574";
++
++	aliases {
++		serial0 = &blsp1_uart2;
++	};
++
++	chosen {
++		stdout-path = "serial0:115200n8";
++		bootargs = "console=ttyMSM0,115200n8";
++	};
++
++	memory@40000000 {
++		device_type = "memory";
++		reg = <0 0x40000000 0 0x40000000>;
++	};
++
++	reserved-memory {
++		#address-cells = <2>;
++		#size-cells = <2>;
++		ranges;
++
++		tzapp@49b00000 {
++			reg = <0 0x49b00000 0 0x600000>;
++			no-map;
++		};
++
++		wcnss@4ab00000 {
++			reg = <0 0x4ab00000 0 0x2b00000>;
++			no-map;
++		};
++
++		m3_dump@4d600000 {
++			reg = <0 0x4d600000 0 0x100000>;
++			no-map;
++		};
++
++		q6_etr_dump@4d700000 {
++			reg = <0 0x4d700000 0 0x100000>;
++			no-map;
++		};
++
++		q6_caldb@4d800000 {
++			reg = <0 0x4d800000 0 0x500000>;
++			no-map;
++		};
++
++		qcn9000_pcie0@4dd00000 {
++			reg = <0 0x4dd00000 0 0x3500000>;
++			no-map;
++		};
++
++		qcn9000_pcie1@51200000 {
++			reg = <0 0x51200000 0 0x3500000>;
++			no-map;
++		};
++
++		dma_pool0@54700000 {
++			compatible = "shared-dma-pool";
++			reg = <0 0x54700000 0 0x900000>;
++			no-map;
++		};
++
++		dma_pool1@55000000 {
++			compatible = "shared-dma-pool";
++			reg = <0 0x55000000 0 0x900000>;
++			no-map;
++		};
++
++		ramoops@55900000 {
++			compatible = "ramoops";
++			reg = <0 0x55900000 0 0x200000>;
++			record-size = <0x20000>;
++			console-size = <0x100000>;
++			ftrace-size = <0x20000>;
++			no-map;
++		};
++
++		kmsg_collect@55b00000 {
++			reg = <0 0x55b00000 0 0x1000>;
++			no-map;
++		};
++	};
++
++	keys {
++		compatible = "gpio-keys";
++		pinctrl-0 = <&keys_default>;
++		pinctrl-names = "default";
++
++		button-wps {
++			label = "wps";
++			linux,code = <KEY_WPS_BUTTON>;
++			gpios = <&tlmm 37 GPIO_ACTIVE_LOW>;
++			debounce-interval = <30>;
++		};
++
++		button-reset {
++			label = "reset";
++			linux,code = <KEY_RESTART>;
++			gpios = <&tlmm 50 GPIO_ACTIVE_LOW>;
++			debounce-interval = <30>;
++		};
++	};
++
++	leds {
++		compatible = "gpio-leds";
++		pinctrl-0 = <&leds_default>;
++		pinctrl-names = "default";
++
++		led_power_red: led-power-red {
++			color = <LED_COLOR_ID_RED>;
++			function = LED_FUNCTION_POWER;
++			gpios = <&tlmm 55 GPIO_ACTIVE_HIGH>;
++			linux,default-trigger = "panic";
++		};
++
++		led_power_green: led-power-green {
++			color = <LED_COLOR_ID_GREEN>;
++			function = LED_FUNCTION_POWER;
++			gpios = <&tlmm 22 GPIO_ACTIVE_HIGH>;
++			default-state = "on";
++			linux,default-trigger = "heartbeat";
++		};
++
++		led_power_amber: led-power-amber {
++			color = <LED_COLOR_ID_AMBER>;
++			function = LED_FUNCTION_POWER;
++			gpios = <&tlmm 57 GPIO_ACTIVE_HIGH>;
++		};
++
++		led_wps_green: led-wps-green {
++			color = <LED_COLOR_ID_GREEN>;
++			function = LED_FUNCTION_WPS;
++			gpios = <&tlmm 28 GPIO_ACTIVE_HIGH>;
++		};
++
++		led_wps_red: led-wps-red {
++			color = <LED_COLOR_ID_RED>;
++			function = LED_FUNCTION_WPS;
++			gpios = <&tlmm 30 GPIO_ACTIVE_HIGH>;
++		};
++
++		led_wlan: led-wlan {
++			color = <LED_COLOR_ID_WHITE>;
++			function = LED_FUNCTION_WLAN;
++			gpios = <&tlmm 24 GPIO_ACTIVE_HIGH>;
++		};
++
++		led_inet: led-inet {
++			color = <LED_COLOR_ID_WHITE>;
++			function = LED_FUNCTION_WAN_ONLINE;
++			gpios = <&tlmm 46 GPIO_ACTIVE_HIGH>;
++		};
++
++		led_inet_red: led-inet-red {
++			color = <LED_COLOR_ID_RED>;
++			function = LED_FUNCTION_WAN_ONLINE;
++			gpios = <&tlmm 23 GPIO_ACTIVE_HIGH>;
++		};
++
++		led_inet_green: led-inet-green {
++			color = <LED_COLOR_ID_GREEN>;
++			function = LED_FUNCTION_WAN_ONLINE;
++			gpios = <&tlmm 56 GPIO_ACTIVE_HIGH>;
++		};
++
++		led_inet_amber: led-inet-amber {
++			color = <LED_COLOR_ID_AMBER>;
++			function = LED_FUNCTION_WAN_ONLINE;
++			gpios = <&tlmm 31 GPIO_ACTIVE_HIGH>;
++		};
++	};
++};
++
++&blsp1_uart2 {
++	pinctrl-0 = <&uart2_pins>;
++	pinctrl-names = "default";
++	status = "okay";
++};
++
++&mdio {
++	pinctrl-0 = <&mdio_pins>;
++	pinctrl-names = "default";
++	clock-frequency = <6250000>;
++	reset-gpios = <&tlmm 60 GPIO_ACTIVE_LOW>;
++	reset-delay-us = <100000>;
++	reset-post-delay-us = <200000>;
++	status = "okay";
++
++	ethernet-phy-package@0 {
++		compatible = "qcom,qca8075-package";
++		#address-cells = <1>;
++		#size-cells = <0>;
++		reg = <0>;
++		qcom,package-mode = "qsgmii";
++
++		phy0: ethernet-phy@0 {
++			compatible = "ethernet-phy-ieee802.3-c22";
++			reg = <0>;
++		};
++
++		phy1: ethernet-phy@1 {
++			compatible = "ethernet-phy-ieee802.3-c22";
++			reg = <1>;
++		};
++
++		phy2: ethernet-phy@2 {
++			compatible = "ethernet-phy-ieee802.3-c22";
++			reg = <2>;
++		};
++
++		phy3: ethernet-phy@3 {
++			compatible = "ethernet-phy-ieee802.3-c22";
++			reg = <3>;
++		};
++	};
++
++	phy7: ethernet-phy@7 {
++		reg = <7>;
++	};
++
++	phy8: ethernet-phy@8 {
++		compatible = "ethernet-phy-ieee802.3-c45";
++		reg = <8>;
++	};
++};
++
++&qcom_ppe {
++	ethernet-ports {
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		port@1 {
++			reg = <1>;
++			phy-mode = "qsgmii";
++			managed = "in-band-status";
++			label = "lan3";
++			phy-handle = <&phy0>;
++			pcs-handle = <&pcs0_ch0>;
++			clocks = <&nsscc NSS_CC_PORT1_MAC_CLK>,
++				 <&nsscc NSS_CC_PORT1_RX_CLK>,
++				 <&nsscc NSS_CC_PORT1_TX_CLK>;
++			clock-names = "mac",
++				      "rx",
++				      "tx";
++			resets = <&nsscc PORT1_MAC_ARES>,
++				 <&nsscc PORT1_RX_ARES>,
++				 <&nsscc PORT1_TX_ARES>;
++			reset-names = "mac",
++				      "rx",
++				      "tx";
++		};
++
++		port@2 {
++			reg = <2>;
++			phy-mode = "qsgmii";
++			managed = "in-band-status";
++			label = "lan2";
++			phy-handle = <&phy1>;
++			pcs-handle = <&pcs0_ch1>;
++			clocks = <&nsscc NSS_CC_PORT2_MAC_CLK>,
++				 <&nsscc NSS_CC_PORT2_RX_CLK>,
++				 <&nsscc NSS_CC_PORT2_TX_CLK>;
++			clock-names = "mac",
++				      "rx",
++				      "tx";
++			resets = <&nsscc PORT2_MAC_ARES>,
++				 <&nsscc PORT2_RX_ARES>,
++				 <&nsscc PORT2_TX_ARES>;
++			reset-names = "mac",
++				      "rx",
++				      "tx";
++		};
++
++		port@3 {
++			reg = <3>;
++			phy-mode = "qsgmii";
++			managed = "in-band-status";
++			label = "lan4";
++			phy-handle = <&phy2>;
++			pcs-handle = <&pcs0_ch2>;
++			clocks = <&nsscc NSS_CC_PORT3_MAC_CLK>,
++				 <&nsscc NSS_CC_PORT3_RX_CLK>,
++				 <&nsscc NSS_CC_PORT3_TX_CLK>;
++			clock-names = "mac",
++				      "rx",
++				      "tx";
++			resets = <&nsscc PORT3_MAC_ARES>,
++				 <&nsscc PORT3_RX_ARES>,
++				 <&nsscc PORT3_TX_ARES>;
++			reset-names = "mac",
++				      "rx",
++				      "tx";
++		};
++
++		port@4 {
++			reg = <4>;
++			phy-mode = "qsgmii";
++			managed = "in-band-status";
++			label = "lan5";
++			phy-handle = <&phy3>;
++			pcs-handle = <&pcs0_ch3>;
++			clocks = <&nsscc NSS_CC_PORT4_MAC_CLK>,
++				 <&nsscc NSS_CC_PORT4_RX_CLK>,
++				 <&nsscc NSS_CC_PORT4_TX_CLK>;
++			clock-names = "mac",
++				      "rx",
++				      "tx";
++			resets = <&nsscc PORT4_MAC_ARES>,
++				 <&nsscc PORT4_RX_ARES>,
++				 <&nsscc PORT4_TX_ARES>;
++			reset-names = "mac",
++				      "rx",
++				      "tx";
++		};
++
++		port@5 {
++			reg = <5>;
++			phy-mode = "2500base-x";
++			label = "lan1";
++			phy-handle = <&phy7>;
++			pcs-handle = <&pcs1_ch0>;
++			clocks = <&nsscc NSS_CC_PORT5_MAC_CLK>,
++				 <&nsscc NSS_CC_PORT5_RX_CLK>,
++				 <&nsscc NSS_CC_PORT5_TX_CLK>;
++			clock-names = "mac",
++				      "rx",
++				      "tx";
++			resets = <&nsscc PORT5_MAC_ARES>,
++				 <&nsscc PORT5_RX_ARES>,
++				 <&nsscc PORT5_TX_ARES>;
++			reset-names = "mac",
++				      "rx",
++				      "tx";
++		};
++
++		port@6 {
++			reg = <6>;
++			phy-mode = "usxgmii";
++			managed = "in-band-status";
++			label = "wan";
++			phy-handle = <&phy8>;
++			pcs-handle = <&pcs2_ch0>;
++			clocks = <&nsscc NSS_CC_PORT6_MAC_CLK>,
++				 <&nsscc NSS_CC_PORT6_RX_CLK>,
++				 <&nsscc NSS_CC_PORT6_TX_CLK>;
++			clock-names = "mac",
++				      "rx",
++				      "tx";
++			resets = <&nsscc PORT6_MAC_ARES>,
++				 <&nsscc PORT6_RX_ARES>,
++				 <&nsscc PORT6_TX_ARES>;
++			reset-names = "mac",
++				      "rx",
++				      "tx";
++		};
++	};
++};
++
++&rpm_requests {
++	regulators {
++		compatible = "qcom,rpm-mp5496-regulators";
++
++		ipq9574_s1: s1 {
++			regulator-min-microvolt = <725000>;
++			regulator-max-microvolt = <1075000>;
++		};
++
++		mp5496_l5: l5 {
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-always-on;
++			regulator-boot-on;
++		};
++	};
++};
++
++&crypto {
++	status = "disabled";
++};
++
++&cryptobam {
++	status = "disabled";
++};
++
++&tlmm {
++	emmc_pins: emmc-pins-state {
++		clk-pins {
++			pins = "gpio5";
++			function = "sdc_clk";
++			drive-strength = <8>;
++			bias-disable;
++		};
++
++		cmd-pins {
++			pins = "gpio4";
++			function = "sdc_cmd";
++			drive-strength = <8>;
++			bias-pull-up;
++		};
++
++		data-pins {
++			pins = "gpio0", "gpio1", "gpio2",
++			       "gpio3", "gpio6", "gpio7",
++			       "gpio8", "gpio9";
++			function = "sdc_data";
++			drive-strength = <8>;
++			bias-pull-up;
++		};
++	};
++
++	keys_default: keys-default-state {
++		pins = "gpio37", "gpio50";
++		function = "gpio";
++		drive-strength = <8>;
++		bias-pull-up;
++	};
++
++	leds_default: leds-default-state {
++		pins = "gpio22", "gpio23", "gpio24", "gpio28", "gpio30",
++		       "gpio31", "gpio46", "gpio55", "gpio56", "gpio57";
++		function = "gpio";
++		drive-strength = <8>;
++		bias-disable;
++	};
++};
++
++&sdhc_1 {
++	pinctrl-0 = <&emmc_pins>;
++	pinctrl-names = "default";
++	bus-width = <8>;
++	mmc-ddr-1_8v;
++	max-frequency = <96000000>;
++	status = "okay";
++};
++
++&sleep_clk {
++	clock-frequency = <32000>;
++};
++
++&ref_48mhz_clk {
++	clock-div = <1>;
++	clock-mult = <1>;
++};
++
++&xo_board_clk {
++	clock-div = <2>;
++	clock-mult = <1>;
++};
++
++&xo_clk {
++	clock-frequency = <48000000>;
++};
+diff --git a/target/linux/qualcommbe/image/ipq95xx.mk b/target/linux/qualcommbe/image/ipq95xx.mk
+index 32232d6..7cb8f62 100644
+--- a/target/linux/qualcommbe/image/ipq95xx.mk
++++ b/target/linux/qualcommbe/image/ipq95xx.mk
+@@ -46,3 +46,13 @@ define Device/qcom_rdp433
+ 	IMAGE/sysupgrade.bin := append-kernel | pad-to 64k | append-rootfs | pad-rootfs | check-size | append-metadata
+ endef
+ TARGET_DEVICES += qcom_rdp433
++
++define Device/nokia_beacon-10
++	$(call Device/FitImage)
++	DEVICE_VENDOR := Nokia
++	DEVICE_MODEL := Beacon 10
++	SOC := ipq9574
++	DEVICE_DTS := ipq9574-nokia-beacon-10
++	DEVICE_DTS_CONFIG := config@nokia-beacon-10
++endef
++TARGET_DEVICES += nokia_beacon-10
+diff --git a/target/linux/qualcommbe/ipq95xx/base-files/etc/board.d/02_network b/target/linux/qualcommbe/ipq95xx/base-files/etc/board.d/02_network
+index f0d7770..1970c15 100755
+--- a/target/linux/qualcommbe/ipq95xx/base-files/etc/board.d/02_network
++++ b/target/linux/qualcommbe/ipq95xx/base-files/etc/board.d/02_network
+@@ -20,6 +20,9 @@ ipq95xx_setup_interfaces()
+ 	qcom,ipq9574-ap-al02-c7)
+ 		ucidef_set_interfaces_lan_wan "lan1 lan2 lan3 lan4 lan5" "wan"
+ 		;;
++	nokia,beacon-10)
++		ucidef_set_interfaces_lan_wan "lan1 lan2 lan3 lan4 lan5" "wan"
++		;;
+ 	*)
+ 		echo "Unsupported hardware. Network interfaces not initialized"
+ 		;;
+-- 
+2.53.0
+

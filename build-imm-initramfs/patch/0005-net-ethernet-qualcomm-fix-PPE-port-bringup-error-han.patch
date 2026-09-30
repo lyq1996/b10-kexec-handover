@@ -1,0 +1,85 @@
+From 1d6a74d7afdb6a4f2aba4e6a7eee08f24401c0b0 Mon Sep 17 00:00:00 2001
+From: lyq1996 <lyq1996@users.noreply.github.com>
+Date: Mon, 28 Sep 2026 20:09:24 +0000
+Subject: [PATCH 5/5] net: ethernet: qualcomm: fix PPE port bringup error
+ handling
+
+Reset the port index after the setup unwind loop so the clock
+cleanup does not run with index -1. Only deconfigure ports whose TX
+rings were configured, and drop the stray assignment that made ring
+disable use the per-CPU index instead of the port ring.
+
+Co-Authored-By: Claude Code <noreply@anthropic.com>
+---
+ ...alcomm-fix-PPE-port-error-path-unwin.patch | 10 +++++
+ ...ualcomm-fix-EDMA-TX-ring-and-port-br.patch | 41 +++++++++++++++++++
+ 2 files changed, 51 insertions(+)
+ create mode 100644 target/linux/qualcommbe/patches-6.18/0413-net-ethernet-qualcomm-fix-PPE-port-error-path-unwin.patch
+ create mode 100644 target/linux/qualcommbe/patches-6.18/0414-net-ethernet-qualcomm-fix-EDMA-TX-ring-and-port-br.patch
+
+diff --git a/target/linux/qualcommbe/patches-6.18/0413-net-ethernet-qualcomm-fix-PPE-port-error-path-unwin.patch b/target/linux/qualcommbe/patches-6.18/0413-net-ethernet-qualcomm-fix-PPE-port-error-path-unwin.patch
+new file mode 100644
+index 0000000..6d8ad9d
+--- /dev/null
++++ b/target/linux/qualcommbe/patches-6.18/0413-net-ethernet-qualcomm-fix-PPE-port-error-path-unwin.patch
+@@ -0,0 +1,10 @@
++--- a/drivers/net/ethernet/qualcomm/ppe/ppe_port.c
+++++ b/drivers/net/ethernet/qualcomm/ppe/ppe_port.c
++@@ -1415,6 +1415,7 @@
++ 		edma_port_destroy(&ppe_ports->port[i]);
++ 		i--;
++ 	}
+++	i = 0;
++ 
++ err_port_clk:
++ 	while (i) {
+diff --git a/target/linux/qualcommbe/patches-6.18/0414-net-ethernet-qualcomm-fix-EDMA-TX-ring-and-port-br.patch b/target/linux/qualcommbe/patches-6.18/0414-net-ethernet-qualcomm-fix-EDMA-TX-ring-and-port-br.patch
+new file mode 100644
+index 0000000..d0e65dd
+--- /dev/null
++++ b/target/linux/qualcommbe/patches-6.18/0414-net-ethernet-qualcomm-fix-EDMA-TX-ring-and-port-br.patch
+@@ -0,0 +1,41 @@
++--- a/drivers/net/ethernet/qualcomm/ppe/edma_port.c
+++++ b/drivers/net/ethernet/qualcomm/ppe/edma_port.c
++@@ -420,8 +420,6 @@
++ 	 */
++ 	edma_ctx->netdev_arr[port_id - 1] = netdev;
++ 
++-	edma_port_configure(netdev);
++-
++ 	ret = ppe_port_phylink_setup(port, netdev);
++ 	if (ret) {
++ 		netdev_dbg(netdev, "EDMA port phylink setup for netdevice %s\n",
++@@ -429,6 +427,8 @@
++ 		goto port_phylink_setup_fail;
++ 	}
++ 
+++	edma_port_configure(netdev);
+++
++ 	ret = register_netdev(netdev);
++ 	if (ret) {
++ 		netdev_dbg(netdev, "Error registering netdevice %s\n",
++@@ -441,8 +441,8 @@
++ 
++ register_netdev_fail:
++ 	ppe_port_phylink_destroy(port);
++-port_phylink_setup_fail:
++ 	edma_port_deconfigure(netdev);
+++port_phylink_setup_fail:
++ 	edma_ctx->netdev_arr[port_id - 1] = NULL;
++ 	edma_port_stats_free(netdev);
++ stats_alloc_fail:
++--- a/drivers/net/ethernet/qualcomm/ppe/edma_cfg_tx.c
+++++ b/drivers/net/ethernet/qualcomm/ppe/edma_cfg_tx.c
++@@ -271,8 +271,6 @@
++ 		ring_idx = ((port_id - 1) * num_possible_cpus()) + i;
++ 		txdesc_ring = &edma_ctx->tx_rings[ring_idx];
++ 		u32 data;
++-
++-		txdesc_ring = &edma_ctx->tx_rings[i];
++ 		reg = EDMA_BASE_OFFSET + EDMA_REG_TXDESC_CTRL(txdesc_ring->id);
++ 		regmap_read(regmap, reg, &data);
++ 		data &= ~EDMA_TXDESC_TX_ENABLE;
+-- 
+2.53.0
+

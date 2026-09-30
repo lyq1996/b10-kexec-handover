@@ -1,0 +1,25 @@
+diff --git a/target/linux/qualcommbe/Makefile b/target/linux/qualcommbe/Makefile
+index 1db4eaa..f1a81a0 100644
+--- a/target/linux/qualcommbe/Makefile
++++ b/target/linux/qualcommbe/Makefile
+@@ -3,7 +3,7 @@ include $(TOPDIR)/rules.mk
+ ARCH:=aarch64
+ BOARD:=qualcommbe
+ BOARDNAME:=Qualcomm Atheros 802.11be WiSoC-s
+-FEATURES:=squashfs ramdisk fpu nand rtc emmc
++FEATURES:=squashfs ramdisk fpu rtc emmc
+ KERNELNAME:=Image
+ CPU_TYPE:=cortex-a53
+ SUBTARGETS:=ipq95xx
+@@ -12,10 +12,8 @@ KERNEL_PATCHVER:=6.18
+ 
+ include $(INCLUDE_DIR)/target.mk
+ DEFAULT_PACKAGES += \
+-	kmod-usb3 kmod-usb-dwc3 kmod-usb-dwc3-qcom \
+ 	kmod-leds-gpio kmod-gpio-button-hotplug \
+ 	kmod-qcom-ppe \
+-	wpad-openssl uboot-envtools \
+-	e2fsprogs kmod-fs-ext4 losetup
++	uboot-envtools \
+ 
+ $(eval $(call BuildTarget))

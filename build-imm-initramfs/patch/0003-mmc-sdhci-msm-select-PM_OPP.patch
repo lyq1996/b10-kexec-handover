@@ -1,0 +1,33 @@
+From 359689f3ff7f4c260c9c2d592f936ff7c81efe6f Mon Sep 17 00:00:00 2001
+From: lyq1996 <lyq1996@users.noreply.github.com>
+Date: Mon, 28 Sep 2026 20:09:24 +0000
+Subject: [PATCH 3/5] mmc: sdhci-msm: select PM_OPP
+
+Without PM_OPP the interconnect path lookup returns -EOPNOTSUPP
+and the controller probe fails silently.
+
+Co-Authored-By: Claude Code <noreply@anthropic.com>
+---
+ .../0411-mmc-sdhci-msm-select-PM_OPP.patch             | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+ create mode 100644 target/linux/qualcommbe/patches-6.18/0411-mmc-sdhci-msm-select-PM_OPP.patch
+
+diff --git a/target/linux/qualcommbe/patches-6.18/0411-mmc-sdhci-msm-select-PM_OPP.patch b/target/linux/qualcommbe/patches-6.18/0411-mmc-sdhci-msm-select-PM_OPP.patch
+new file mode 100644
+index 0000000..0804378
+--- /dev/null
++++ b/target/linux/qualcommbe/patches-6.18/0411-mmc-sdhci-msm-select-PM_OPP.patch
+@@ -0,0 +1,10 @@
++--- a/drivers/mmc/host/Kconfig
+++++ b/drivers/mmc/host/Kconfig
++@@ -596,6 +596,7 @@
++ 	depends on MMC_SDHCI_PLTFM
++ 	select MMC_SDHCI_IO_ACCESSORS
++ 	select MMC_CQHCI
+++	select PM_OPP
++ 	select QCOM_INLINE_CRYPTO_ENGINE if MMC_CRYPTO
++ 	help
++ 	  This selects the Secure Digital Host Controller Interface (SDHCI)
+-- 
+2.53.0
+

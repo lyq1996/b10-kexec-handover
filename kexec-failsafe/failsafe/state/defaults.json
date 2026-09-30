@@ -1,0 +1,50 @@
+{
+
+  "kernel":   "/opt/boot/Image",
+  "dtb":      "/opt/boot/image-ipq9574-nokia-beacon-10.dtb",
+  "cmdline":  "root=/dev/mmcblk0p34 rw rootwait rootfstype=ext4",
+  "irfs_cmdline": "root=/dev/mmcblk0p34 console=ttyMSM0,115200n8 clk_ignore_unused panic=10 initcall_debug",
+  "mem_base": "0x40000000",
+  "mem_size": "0x40000000",
+  "bootlog":  "/tmp/kexec/state/kexec-boot.log",
+  "ko_name":  "kexec-lite-54.ko",
+
+  "log_path":   "/tmp/kexec/state/failsafe.log",
+  "log_max":    "4M",
+  "log_keep":   "3",
+  "log_floor":  "8M",
+  "log_rotate": "1",
+
+  "opt_dev":    "/dev/mmcblk0p34",
+  "opt_mnt":    "/opt",
+  "upload_dir": "/tmp/kexec/upload",
+  "df_path":    "/tmp",
+
+  "kexec_dir":   "",
+  "http_docroot": "",
+  "thttpd_bin":  "",
+  "thttpd_pid":  "/tmp/kexec/state/thttpd.pid",
+  "thttpd_log":  "/tmp/kexec/state/thttpd.log",
+
+  "http_port":   "1717",
+  "http_cgipat": "**.cgi",
+  "http_user":   "root",
+  "http_bind":   "",
+
+  "chunk_size":   "1048576",
+  "exec_timeout": "20",
+
+  "wps_reg":     "0x01025004",
+  "wps_window":  "9",
+  "wps_poll_ms": "200",
+  "led_wps":     "/sys/class/leds/wps_g/brightness",
+  "qfprom_auth": "/sys/devices/system/qfprom/qfprom0/authenticate",
+
+  "bootlog_max_kb": "64",
+  "dtb_max_kb":     "128",
+  "img_max_mb":     "32",
+
+  "ext4_label":    "opt",
+  "ext4_features": "^metadata_csum_seed,^bigalloc",
+  "ext4_opts":     "lazy_itable_init=0,lazy_journal_init=0"
+}

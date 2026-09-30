@@ -1,0 +1,55 @@
+From 658907415096c3370333d4c2929cf629deeb8a9a Mon Sep 17 00:00:00 2001
+From: lyq1996 <lyq1996@users.noreply.github.com>
+Date: Mon, 28 Sep 2026 20:09:24 +0000
+Subject: [PATCH 4/5] net: ethernet: qualcomm: fix PPE TX error counter
+ underflow
+
+Read the good frames counter before the total frames counter so a
+hardware update between the two reads cannot make tx_errors negative.
+
+Co-Authored-By: Claude Code <noreply@anthropic.com>
+---
+ ...alcomm-fix-PPE-TX-error-counter-unde.patch | 31 +++++++++++++++++++
+ 1 file changed, 31 insertions(+)
+ create mode 100644 target/linux/qualcommbe/patches-6.18/0412-net-ethernet-qualcomm-fix-PPE-TX-error-counter-unde.patch
+
+diff --git a/target/linux/qualcommbe/patches-6.18/0412-net-ethernet-qualcomm-fix-PPE-TX-error-counter-unde.patch b/target/linux/qualcommbe/patches-6.18/0412-net-ethernet-qualcomm-fix-PPE-TX-error-counter-unde.patch
+new file mode 100644
+index 0000000..ad236bc
+--- /dev/null
++++ b/target/linux/qualcommbe/patches-6.18/0412-net-ethernet-qualcomm-fix-PPE-TX-error-counter-unde.patch
+@@ -0,0 +1,31 @@
++--- a/drivers/net/ethernet/qualcomm/ppe/ppe_port.c
+++++ b/drivers/net/ethernet/qualcomm/ppe/ppe_port.c
++@@ -493,12 +493,15 @@
++ void ppe_port_get_stats64(struct ppe_port *ppe_port,
++ 			  struct rtnl_link_stats64 *s)
++ {
+++	u64 tx_frames_good;
+++
++ 	s->multicast = ppe_port_xgmib_get(ppe_port, xgmib_rx_multicast_g);
++ 
++ 	s->rx_packets = s->multicast;
++ 	s->rx_packets += ppe_port_xgmib_get(ppe_port, xgmib_rx_unicast_g);
++ 	s->rx_packets += ppe_port_xgmib_get(ppe_port, xgmib_rx_broadcast_g);
++ 
+++	tx_frames_good = ppe_port_xgmib_get(ppe_port, xgmib_tx_frames_g);
++ 	s->tx_packets = ppe_port_xgmib_get(ppe_port, xgmib_tx_frames);
++ 	s->rx_bytes = ppe_port_xgmib_get(ppe_port, xgmib_rx_bytes);
++ 	s->tx_bytes = ppe_port_xgmib_get(ppe_port, xgmib_tx_bytes);
++@@ -514,8 +517,10 @@
++ 
++ 	s->tx_fifo_errors = ppe_port_xgmib_get(ppe_port,
++ 					       xgmib_tx_underflow_err);
++-	s->tx_errors = s->tx_packets -
++-		ppe_port_xgmib_get(ppe_port, xgmib_tx_frames_g);
+++	if (s->tx_packets < tx_frames_good)
+++		s->tx_errors = 0;
+++	else
+++		s->tx_errors = s->tx_packets - tx_frames_good;
++ 
++ 	if (ppe_port->gmib_stats) {
++ 		u64 *gsrc = ppe_port->gmib_stats;
+-- 
+2.53.0
+

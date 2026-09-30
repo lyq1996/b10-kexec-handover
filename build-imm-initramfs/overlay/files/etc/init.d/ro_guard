@@ -1,0 +1,27 @@
+#!/bin/sh /etc/rc.common
+
+START=09
+
+apply_ro() {
+	local part
+
+	for part in /dev/mmcblk0p* /dev/mmcblk0boot0 /dev/mmcblk0boot1; do
+		[ -b "$part" ] || continue
+		[ "$part" = "/dev/mmcblk0p34" ] && continue
+		blockdev --setro "$part" || true
+	done
+	return 0
+}
+
+start() {
+	echo "b10diag: S09 ro_guard start (gated on root=mmcblk0p34)" > /dev/kmsg 2>/dev/null
+	grep -q "root=/dev/mmcblk0p34" /proc/cmdline || return 0
+	[ -b /dev/mmcblk0p34 ] || return 0
+
+	if apply_ro; then
+		logger -t ro_guard "marked all mmcblk0 partitions except p34 read-only"
+	else
+		logger -t ro_guard "WARNING: failed to mark partitions read-only"
+	fi
+	echo "b10diag: S09 ro_guard done" > /dev/kmsg 2>/dev/null
+}

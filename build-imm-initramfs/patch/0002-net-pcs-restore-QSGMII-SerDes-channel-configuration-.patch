@@ -1,0 +1,88 @@
+From 073e7940eb2b6fdfecb17ce735b44a58dccd13ad Mon Sep 17 00:00:00 2001
+From: lyq1996 <lyq1996@users.noreply.github.com>
+Date: Mon, 28 Sep 2026 20:09:24 +0000
+Subject: [PATCH 2/5] net: pcs: restore QSGMII SerDes channel configuration on
+ IPQ9574
+
+The SerDes channel registers need specific values for QSGMII to
+work. Program them after the PLL reset and again on link up.
+
+Co-Authored-By: Claude Code <noreply@anthropic.com>
+---
+ ...pq9574-restore-QSGMII-SerDes-channel.patch | 64 +++++++++++++++++++
+ 1 file changed, 64 insertions(+)
+ create mode 100644 target/linux/qualcommbe/patches-6.18/0410-net-pcs-qcom-ipq9574-restore-QSGMII-SerDes-channel.patch
+
+diff --git a/target/linux/qualcommbe/patches-6.18/0410-net-pcs-qcom-ipq9574-restore-QSGMII-SerDes-channel.patch b/target/linux/qualcommbe/patches-6.18/0410-net-pcs-qcom-ipq9574-restore-QSGMII-SerDes-channel.patch
+new file mode 100644
+index 0000000..118a585
+--- /dev/null
++++ b/target/linux/qualcommbe/patches-6.18/0410-net-pcs-qcom-ipq9574-restore-QSGMII-SerDes-channel.patch
+@@ -0,0 +1,64 @@
++--- a/drivers/net/pcs/pcs-qcom-ipq9574.c
+++++ b/drivers/net/pcs/pcs-qcom-ipq9574.c
++@@ -321,6 +321,21 @@
++ 	return clk_prepare_enable(qpcs->qpcs_mii[0]->tx_clk);
++ }
++ 
+++static const struct {
+++	u32 off;
+++	u32 val;
+++} ipq_pcs_qsgmii_serdes_cfg[] = {
+++	{ 0x500, 0x0000000e }, { 0x504, 0x0000a607 },
+++	{ 0x508, 0x0000000d }, { 0x50c, 0x00005602 },
+++	{ 0x510, 0x0000000d }, { 0x514, 0x0000a602 },
+++	{ 0x51c, 0x00005607 }, { 0x520, 0x00000001 },
+++	{ 0x524, 0x00005000 },
+++	{ 0xd00, 0x0000000d }, { 0xd04, 0x0000a602 },
+++	{ 0xd0c, 0x00005607 }, { 0xd10, 0x0000000d },
+++	{ 0xd14, 0x0000a602 }, { 0xd18, 0x0000000e },
+++	{ 0xd1c, 0x00005602 }, { 0xd24, 0x00005000 },
+++};
+++
++ static int ipq_pcs_config_mode(struct ipq_pcs *qpcs,
++ 			       phy_interface_t interface)
++ {
++@@ -448,6 +463,15 @@
++ 			goto err_clk;
++ 	}
++ 
+++	if (interface == PHY_INTERFACE_MODE_QSGMII) {
+++		int i;
+++
+++		for (i = 0; i < ARRAY_SIZE(ipq_pcs_qsgmii_serdes_cfg); i++)
+++			regmap_write(qpcs->regmap,
+++				     ipq_pcs_qsgmii_serdes_cfg[i].off,
+++				     ipq_pcs_qsgmii_serdes_cfg[i].val);
+++	}
+++
++ 	/* Wait for calibration completion */
++ 	ret = regmap_read_poll_timeout(qpcs->regmap, PCS_CALIBRATION,
++ 				       val, val & PCS_CALIBRATION_DONE,
++@@ -649,8 +673,21 @@
++ 	if (ret)
++ 		return ret;
++ 
++-	return regmap_set_bits(qpcs->regmap,
++-			       PCS_MII_CTRL(index), PCS_MII_ADPT_RESET);
+++	ret = regmap_set_bits(qpcs->regmap,
+++			      PCS_MII_CTRL(index), PCS_MII_ADPT_RESET);
+++	if (ret)
+++		return ret;
+++
+++	if (strstr(dev_name(qpcs->dev), "7a00000")) {
+++		int i;
+++
+++		for (i = 0; i < ARRAY_SIZE(ipq_pcs_qsgmii_serdes_cfg); i++)
+++			regmap_write(qpcs->regmap,
+++				     ipq_pcs_qsgmii_serdes_cfg[i].off,
+++				     ipq_pcs_qsgmii_serdes_cfg[i].val);
+++	}
+++
+++	return 0;
++ }
++ 
++ static int ipq_pcs_link_up_config_2500basex(struct ipq_pcs *qpcs, int speed)
+-- 
+2.53.0
+

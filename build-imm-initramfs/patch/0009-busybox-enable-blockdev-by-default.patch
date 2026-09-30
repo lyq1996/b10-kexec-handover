@@ -1,0 +1,13 @@
+diff --git a/package/utils/busybox/Config-defaults.in b/package/utils/busybox/Config-defaults.in
+index afb7f48..80152a0 100644
+--- a/package/utils/busybox/Config-defaults.in
++++ b/package/utils/busybox/Config-defaults.in
+@@ -1540,7 +1540,7 @@ config BUSYBOX_DEFAULT_FEATURE_BLKID_TYPE
+ 	default n
+ config BUSYBOX_DEFAULT_BLOCKDEV
+ 	bool
+-	default n
++	default y
+ config BUSYBOX_DEFAULT_CAL
+ 	bool
+ 	default n

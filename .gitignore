@@ -1,0 +1,9 @@
+dist/
+build/
+*.o
+*.ko
+*.cmd
+.*.cmd
+Module.symvers
+modules.order
+build.log

@@ -1,0 +1,6 @@
+#!/bin/sh /etc/rc.common
+START=20
+start() {
+	echo "b10diag: S20 ledmark_net, network init next" > /dev/kmsg 2>/dev/null
+	ledmark 2 &
+}

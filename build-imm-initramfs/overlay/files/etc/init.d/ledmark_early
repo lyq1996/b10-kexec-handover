@@ -1,0 +1,6 @@
+#!/bin/sh /etc/rc.common
+START=10
+start() {
+	echo "b10diag: S10 ledmark_early, rcS chain running" > /dev/kmsg 2>/dev/null
+	ledmark 1 &
+}

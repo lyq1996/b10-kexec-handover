@@ -1,0 +1,3 @@
+[submodule "immortalwrt"]
+	path = immortalwrt
+	url = https://github.com/VIKINGYFY/immortalwrt.git

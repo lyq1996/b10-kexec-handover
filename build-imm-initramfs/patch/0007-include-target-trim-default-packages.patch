@@ -1,0 +1,45 @@
+diff --git a/include/target.mk b/include/target.mk
+index 1cd4044..53a1438 100644
+--- a/include/target.mk
++++ b/include/target.mk
+@@ -20,14 +20,10 @@ DEVICE_TYPE?=router
+ ##
+ DEFAULT_PACKAGES:=\
+ 	base-files \
+-	ca-bundle \
+ 	dropbear \
+-	fstools \
+ 	libc \
+ 	libgcc \
+-	libustream-openssl \
+ 	logd \
+-	mtd \
+ 	netifd \
+ 	uci \
+ 	uclient-fetch \
+@@ -49,15 +45,7 @@ DEFAULT_PACKAGES.nas:=\
+ ##@
+ # @brief Default packages for @DEVICE_TYPE router.
+ ##
+-DEFAULT_PACKAGES.router:=\
+-	dnsmasq-full \
+-	firewall4 \
+-	nftables \
+-	kmod-nft-offload \
+-	odhcp6c \
+-	odhcpd-ipv6only \
+-	ppp \
+-	ppp-mod-pppoe
++DEFAULT_PACKAGES.router:=
+ # For easy usage
+ DEFAULT_PACKAGES.tweak:=\
+ 	autocore \
+@@ -100,7 +88,7 @@ endif
+ 
+ # include ujail on systems with enough storage
+ ifeq ($(filter small_flash,$(FEATURES)),)
+-  DEFAULT_PACKAGES+=procd-ujail
++  # DEFAULT_PACKAGES+=procd-ujail  # beacon10-min: cut
+ endif
+ 
+ # Add device specific packages (here below to allow device type set from subtarget)

@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kexec-failsafe</title>
+
+<style>
+:root{
+  
+  --chassis:#d5dbe1;
+  --face:#eceff2;
+  --face-2:#e2e7eb;
+  --raised:#f6f8f9;
+  --ink:#12171d;
+  --ink-2:#49535e;
+  --ink-3:#78838e;
+  --rule:#c2cad2;
+  --rule-soft:#d8dee4;
+
+  --ok:#1c7346;   --ok-bg:#e2efe8;
+  --warn:#9d6410; --warn-bg:#f6eedd;
+  --fault:#a92f2f;--fault-bg:#f6e5e5;
+  --act:#1e5a9e;  --act-bg:#e4ecf6;
+
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  --ui:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+
+  --side:236px;
+  --r:4px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--chassis);color:var(--ink);
+  font:14px/1.55 var(--ui);-webkit-font-smoothing:antialiased;overflow:hidden;
+}
+:focus-visible{outline:2px solid var(--act);outline-offset:1px}
+
+.shell{height:100vh;display:grid;grid-template-columns:var(--side) 1fr;min-height:0}
+
+.side{
+  background:var(--face);border-right:1px solid var(--rule);
+  display:flex;flex-direction:column;min-height:0;overflow-y:auto;
+}
+.brand{
+  padding:14px 16px 12px;border-bottom:1px solid var(--rule-soft);
+  font-size:14.5px;font-weight:650;letter-spacing:-.1px;
+}
+.brand .ver{display:block;font-size:11px;font-weight:400;color:var(--ink-3);margin-top:2px}
+
+.devinfo{padding:11px 16px;border-bottom:1px solid var(--rule-soft)}
+.devinfo .k{font-size:11px;color:var(--ink-3)}
+.devinfo .v{font-size:12.5px;font-weight:600;line-height:1.45;word-break:break-word}
+.devinfo .row+.row{margin-top:7px}
+.devinfo .na{color:var(--ink-3);font-weight:400}
+
+.nav{padding:8px 0;border-bottom:1px solid var(--rule-soft)}
+.nav .grp{font-size:11px;color:var(--ink-3);padding:11px 16px 4px}
+.nav .grp:first-child{padding-top:2px}
+.nav button{
+  display:block;width:100%;text-align:left;font:inherit;font-size:13.5px;
+  color:var(--ink-2);padding:7px 16px 7px 14px;
+  border:0;border-left:2px solid transparent;background:transparent;cursor:pointer;
+}
+.nav button:hover{background:var(--face-2);color:var(--ink)}
+.nav button[aria-current=true]{
+  background:var(--raised);color:var(--ink);font-weight:600;
+  border-left-color:var(--act);
+  box-shadow:inset 0 1px 0 var(--rule-soft),inset 0 -1px 0 var(--rule-soft);
+}
+
+.state{padding:11px 16px;border-bottom:1px solid var(--rule-soft)}
+.state .row{display:flex;align-items:center;gap:7px;font-size:12px;padding:2.5px 0}
+.state .row .lb{color:var(--ink-2);flex:1}
+.state .row .vl{color:var(--ink);font-weight:600;font-size:11.5px}
+.led{width:7px;height:7px;border-radius:50%;flex:0 0 auto;background:var(--ink-3)}
+.led.ok{background:var(--ok);box-shadow:0 0 0 2.5px var(--ok-bg)}
+.led.warn{background:var(--warn);box-shadow:0 0 0 2.5px var(--warn-bg)}
+.led.fault{background:var(--fault);box-shadow:0 0 0 2.5px var(--fault-bg)}
+.led.off{background:#b6bfc8}
+
+.side .tail{margin-top:auto;padding:11px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.lang{display:flex;border:1px solid var(--rule);border-radius:var(--r);overflow:hidden}
+.lang button{font:inherit;font-size:12px;padding:3px 10px;border:0;background:transparent;color:var(--ink-2);cursor:pointer}
+.lang button+button{border-left:1px solid var(--rule)}
+.lang button[aria-pressed=true]{background:var(--ink);color:#fff;font-weight:600}
+.linkchip{font-size:11px;color:var(--ink-3);border:1px solid var(--rule-soft);border-radius:99px;padding:2px 8px}
+.linkchip.on{color:var(--ok);border-color:#c6ded2;background:var(--ok-bg)}
+
+.pane{overflow-y:auto;background:var(--face);padding:20px 24px 60px;min-height:0}
+.pane > section{display:none;max-width:920px}
+.pane > section[data-active]{display:block}
+
+h2{font-size:15px;font-weight:650;letter-spacing:-.1px;margin-bottom:3px}
+.lede{font-size:12.5px;color:var(--ink-3);margin-bottom:16px;max-width:70ch}
+h3{font-size:12.5px;font-weight:650;color:var(--ink-2);margin:22px 0 8px}
+h3:first-of-type{margin-top:0}
+
+.readout{border:1px solid var(--rule);border-radius:var(--r);background:var(--raised);overflow:hidden}
+.readout table{width:100%;border-collapse:collapse;font-size:13px}
+.readout th,.readout td{text-align:left;padding:7px 13px;border-bottom:1px solid var(--rule-soft);vertical-align:top}
+.readout tr:last-child th,.readout tr:last-child td{border-bottom:0}
+.readout th{width:34%;font-weight:450;color:var(--ink-2)}
+.readout td.val{font-weight:600}
+.readout.dense th,.readout.dense td{padding:5px 13px}
+
+.pill{display:inline-flex;align-items:center;gap:5px;padding:1px 8px;border-radius:99px;
+      font-size:11.5px;font-weight:600;border:1px solid transparent}
+.pill.ok{background:var(--ok-bg);color:var(--ok);border-color:#c6ded2}
+.pill.warn{background:var(--warn-bg);color:var(--warn);border-color:#e7d6b3}
+.pill.fault{background:var(--fault-bg);color:var(--fault);border-color:#e8c8c8}
+.pill.mute{background:var(--face-2);color:var(--ink-3);border-color:var(--rule-soft)}
+.mono{font-family:var(--mono);font-size:12px}
+
+.field{margin-bottom:14px;max-width:620px}
+.field > label{display:block;font-size:12px;color:var(--ink-2);margin-bottom:5px}
+.field .note{font-size:11.5px;color:var(--ink-3);margin-top:4px}
+input[type=text],input[type=password],input[type=number],select,textarea{
+  width:100%;font:inherit;font-size:13px;color:var(--ink);padding:6px 9px;
+  background:#fff;border:1px solid var(--rule);border-radius:var(--r);
+}
+textarea{resize:vertical;min-height:52px}
+input.mono,textarea.mono{font-family:var(--mono);font-size:12px}
+input:focus,select:focus,textarea:focus{outline:0;border-color:var(--act);box-shadow:0 0 0 3px var(--act-bg)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:620px}
+
+.btn{font:inherit;font-size:13px;font-weight:550;color:var(--ink);padding:6px 13px;
+     background:var(--raised);border:1px solid var(--rule);border-radius:var(--r);cursor:pointer}
+.btn:hover{background:#fff}
+.btn:active{transform:translateY(.5px)}
+.btn.act{background:var(--act);border-color:var(--act);color:#fff}
+.btn.act:hover{background:#1a4f8b;border-color:#1a4f8b}
+.btn.fault{color:var(--fault);border-color:#d9b3b3;background:var(--raised)}
+.btn.fault:hover{background:var(--fault-bg)}
+.btn.quiet{border-color:transparent;background:transparent;color:var(--ink-2)}
+.btn.quiet:hover{background:var(--face-2)}
+.btn:disabled{opacity:.42;cursor:not-allowed}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+.choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;max-width:920px}
+.choice{display:flex;gap:9px;padding:11px 12px;cursor:pointer;
+        background:var(--raised);border:1px solid var(--rule);border-radius:var(--r)}
+.choice:hover{border-color:#a9b4bf}
+.choice[aria-checked=true]{border-color:var(--act);background:var(--act-bg);box-shadow:0 0 0 1px var(--act) inset}
+.choice .mark{flex:0 0 auto;width:14px;height:14px;border-radius:50%;border:1.5px solid #a9b4bf;margin-top:2px;position:relative}
+.choice[aria-checked=true] .mark{border-color:var(--act)}
+.choice[aria-checked=true] .mark::after{content:"";position:absolute;inset:2.5px;border-radius:50%;background:var(--act)}
+.choice .t{font-size:13px;font-weight:600;margin-bottom:2px}
+.choice .d{font-size:11.5px;color:var(--ink-3);line-height:1.5}
+
+.check{display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:13px;max-width:620px}
+.check input{margin-top:3px;flex:0 0 auto}
+.check .d{font-size:11.5px;color:var(--ink-3);display:block;margin-top:2px}
+
+.progress{margin-top:14px;max-width:620px;display:none}
+.progress[data-show]{display:block}
+.track{height:7px;background:var(--face-2);border:1px solid var(--rule-soft);border-radius:99px;overflow:hidden}
+.track i{display:block;height:100%;width:0;background:var(--act);transition:width .25s}
+.progress .meta{display:flex;justify-content:space-between;font-size:11.5px;color:var(--ink-3);margin-top:6px}
+
+.file{display:flex;align-items:center;gap:10px;flex-wrap:wrap;max-width:620px}
+.file .nm{font-size:12px;color:var(--ink-2);font-family:var(--mono)}
+.file input[type=file]{font:inherit;font-size:12px}
+
+.cmdline{background:var(--face-2);border:1px solid var(--rule-soft);border-radius:var(--r);
+         padding:9px 11px;font-family:var(--mono);font-size:11.5px;color:var(--ink-2);
+         word-break:break-all;line-height:1.7;max-width:920px}
+
+.term{
+  background:#1a1f26;border-radius:var(--r);padding:12px 13px;height:400px;overflow-y:auto;
+  font-family:var(--mono);font-size:12px;line-height:1.7;color:#ccd4dd;
+  
+  white-space:pre-wrap;word-break:break-word;
+}
+.term .ln{white-space:pre-wrap;word-break:break-word}
+.term .ps{color:#79cf9e}
+.term .in{color:#8fb8ea}
+.term .err{color:#e08585}
+.term .dim{color:#6e7b8a}
+.termline{display:flex;align-items:center;gap:8px;margin-top:10px;max-width:920px}
+.termline .ps{font-family:var(--mono);font-size:12px;color:var(--ink-2);white-space:nowrap}
+.termline input{flex:1;font-family:var(--mono);font-size:12px}
+
+.scrim{position:fixed;inset:0;background:rgba(18,23,29,.5);display:none;align-items:center;justify-content:center;padding:20px;z-index:40}
+.scrim[data-show]{display:flex}
+.dialog{background:var(--face);border:1px solid var(--rule);border-radius:6px;max-width:440px;width:100%;padding:20px;
+        box-shadow:0 16px 40px rgba(0,0,0,.24)}
+.dialog h4{font-size:15px;font-weight:650;margin-bottom:10px;color:var(--fault)}
+.dialog .box{background:var(--fault-bg);border:1px solid #e8c8c8;border-radius:var(--r);
+             padding:9px 11px;font-size:12.5px;color:#8c2929;margin-bottom:12px;line-height:1.6}
+.dialog p{font-size:12.5px;color:var(--ink-2);margin-bottom:14px;line-height:1.65}
+.dialog .foot{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+
+@media(max-width:820px){
+  .shell{grid-template-columns:1fr;grid-template-rows:auto 1fr;height:100vh}
+  .side{border-right:0;border-bottom:1px solid var(--rule);max-height:46vh}
+  .nav button{padding-left:16px}
+  .pane{padding:16px 14px 60px}
+  .two{grid-template-columns:1fr}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  
+  <aside class="side">
+    <div class="brand">
+      kexec-failsafe
+      <span class="ver" id="verText">0.1.0</span>
+    </div>
+
+    
+    <div class="devinfo">
+      <div class="row">
+        <div class="k" data-i18n="dvModel">设备型号</div>
+        <div class="v na" id="dvModel">—</div>
+      </div>
+      <div class="row">
+        <div class="k" data-i18n="dvSoc">SoC</div>
+        <div class="v na" id="dvSoc">—</div>
+      </div>
+      <div class="row">
+        <div class="k" data-i18n="dvCpu">CPU</div>
+        <div class="v na" id="dvCpu">—</div>
+      </div>
+      <div class="row">
+        <div class="k" data-i18n="dvKernel">内核</div>
+        <div class="v na" id="dvKernel">—</div>
+      </div>
+    </div>
+
+    <nav class="nav" id="nav">
+      <div class="grp" data-i18n="grpDevice">设备</div>
+      <button data-go="overview" aria-current="true" data-i18n="navOverview">概览</button>
+      <button data-go="boot"     data-i18n="navBoot">启动</button>
+      <button data-go="storage"  data-i18n="navStorage">存储</button>
+      <button data-go="tempboot" data-i18n="navTemp">临时启动</button>
+
+      <div class="grp" data-i18n="grpConfig">配置</div>
+      <button data-go="settings" data-i18n="navSettings">设置</button>
+
+      <div class="grp" data-i18n="grpTools">工具</div>
+      <button data-go="terminal" data-i18n="navTerminal">终端</button>
+      <button data-go="logs"     data-i18n="navLogs">日志</button>
+    </nav>
+
+    <div class="state" id="state">
+      <div class="row"><i class="led off"></i><span class="lb" data-i18n="syRedline">红线自检</span><span class="vl" id="syRedline">—</span></div>
+      <div class="row"><i class="led off"></i><span class="lb" data-i18n="syOpt">opt 分区</span><span class="vl" id="syOpt">—</span></div>
+      <div class="row"><i class="led off"></i><span class="lb" data-i18n="syPayload">跳转载荷</span><span class="vl" id="syPayload">—</span></div>
+      <div class="row"><i class="led off"></i><span class="lb" data-i18n="syMode">启动模式</span><span class="vl" id="syMode">—</span></div>
+    </div>
+
+    <div class="tail">
+      <div class="lang" role="group" aria-label="Language">
+        <button id="btnZh" aria-pressed="true" onclick="setLang('zh')">中文</button>
+        <button id="btnEn" aria-pressed="false" onclick="setLang('en')">English</button>
+      </div>
+      <span class="linkchip" id="linkChip" data-i18n="chipOffline">未连接</span>
+    </div>
+  </aside>
+
+  
+  <main class="pane" id="pane">
+
+    
+    <section data-view="overview" data-active>
+      <h2 data-i18n="ovTitle">概览</h2>
+      <p class="lede" data-i18n="ovLede">本机当前状态。数值均为只读采集。</p>
+
+      <h3 data-i18n="ovRedline">红线项</h3>
+      <div class="readout dense">
+        <table>
+          <tr><th>secboot</th><td class="val mono" id="rlSecboot">—</td><td id="rlSecbootS"></td></tr>
+          <tr><th>sb_flag</th><td class="val mono" id="rlSbflag">—</td><td id="rlSbflagS"></td></tr>
+          <tr><th>boot_fail_count</th><td class="val mono" id="rlBootfail">—</td><td id="rlBootfailS"></td></tr>
+          <tr><th>flash_type</th><td class="val mono" id="rlFlashtype">—</td><td id="rlFlashtypeS"></td></tr>
+          <tr><th>qfprom0/authenticate</th><td class="val mono" id="rlAuth">—</td><td id="rlAuthS"></td></tr>
+        </table>
+      </div>
+
+      <h3 data-i18n="ovStorage">存储</h3>
+      <div class="readout">
+        <table>
+          <tr><th data-i18n="ovOptPart">opt 分区</th><td class="val mono" id="ovOpt">—</td><td id="ovOptS"></td></tr>
+          <tr><th data-i18n="ovBootDir">opt 内 /boot</th><td class="val mono" id="ovPayload">—</td><td id="ovPayloadS"></td></tr>
+          <tr><th data-i18n="ovToolDir">工具目录</th><td class="val mono" id="ovTool">—</td><td id="ovToolS"></td></tr>
+        </table>
+      </div>
+
+      <h3 data-i18n="ovRecent">最近事件</h3>
+      <div class="readout dense">
+        <table id="ovEvents"><tr><td class="mono" colspan="2" data-i18n="noData">—</td></tr></table>
+      </div>
+    </section>
+
+    
+    <section data-view="boot">
+      <h2 data-i18n="btTitle">启动</h2>
+      <p class="lede" data-i18n="btLede">选择下次开机做什么。改动写入failsafe安装目录的配置文件内，不影响 opt 分区。/p>
+
+      <h3 data-i18n="btMode">启动模式</h3>
+      <div class="choices" id="choices">
+        <div class="choice" role="radio" aria-checked="true" data-mode="opt" tabindex="0">
+          <span class="mark"></span>
+          <span><span class="t" data-i18n="mOptT">跳转 opt</span>
+                <span class="d" data-i18n="mOptD">用当前设置跳转到 p34 上的系统</span></span>
+        </div>
+        <div class="choice" role="radio" aria-checked="false" data-mode="hold" tabindex="0">
+          <span class="mark"></span>
+          <span><span class="t" data-i18n="mHoldT">本次留在 stock</span>
+                <span class="d" data-i18n="mHoldD">一次性标记，下次开机恢复跳转</span></span>
+        </div>
+        <div class="choice" role="radio" aria-checked="false" data-mode="stay" tabindex="0">
+          <span class="mark"></span>
+          <span><span class="t" data-i18n="mStayT">一直留在 stock</span>
+                <span class="d" data-i18n="mStayD">持久标记，直到在此处解除</span></span>
+        </div>
+      </div>
+
+      <div class="btnrow" style="margin-top:16px">
+        <button class="btn act" onclick="ask('jump')" data-i18n="btJump">立即跳转</button>
+        <button class="btn" onclick="saveMode()" data-i18n="btSave">保存</button>
+      </div>
+
+      <h3 data-i18n="btSummary">当前设置摘要</h3>
+      <div class="readout dense">
+        <table>
+          <tr><th data-i18n="stKernel">内核源</th><td class="mono" id="bsKernel">—</td></tr>
+          <tr><th data-i18n="stRoot">根文件系统</th><td class="mono" id="bsRoot">—</td></tr>
+          <tr><th data-i18n="stMode">模式</th><td id="bsMode">—</td></tr>
+        </table>
+      </div>
+    </section>
+
+    
+    <section data-view="storage">
+      <h2 data-i18n="srTitle">存储</h2>
+      <p class="lede" data-i18n="srLede">opt 分区是自包含的：内核、设备树、根文件系统都在 p34 内。</p>
+
+      <h3 data-i18n="srSource">镜像来源</h3>
+      <div class="file">
+        <input type="file" id="imgFile" onchange="onImgPick()">
+        <span class="nm" id="imgName" data-i18n="noFile">未选择文件</span>
+      </div>
+
+      <div class="field" style="margin-top:14px">
+        <label for="imgSha" data-i18n="srSha">sha256（可选，留空则不校验）</label>
+        <input id="imgSha" type="text" class="mono" placeholder="64 hex">
+      </div>
+
+      <label class="check" style="margin:6px 0 16px">
+        <input type="checkbox" id="autoReboot">
+        <span><span data-i18n="srAutoReboot">刷写后自动重启</span>
+              <span class="d" data-i18n="srAutoRebootD">写入完成并校验通过后自动重启设备</span></span>
+      </label>
+
+      <div class="btnrow">
+        <button class="btn act" onclick="ask('flash')" data-i18n="srFlash">刷写 opt</button>
+        <button class="btn fault" onclick="ask('wipe')" data-i18n="srWipe">抹除并格式化为 ext4</button>
+      </div>
+
+      <div class="progress" id="prog">
+        <div class="track"><i id="bar"></i></div>
+        <div class="meta"><span id="pmsg"></span><span id="pnum">0%</span></div>
+      </div>
+
+      <h3 data-i18n="srNotes">注意事项</h3>
+      <div class="readout dense">
+        <table>
+          <tr><td data-i18n="srNote1">格式化使用固定 ext4 特性集：排除 orphan_file、metadata_csum_seed、casefold、bigalloc，并关闭 lazy_itable_init 与 lazy_journal_init。</td></tr>
+          <tr><td data-i18n="srNote2">写入前校验 ext4 魔数 0x53EF 与镜像长度；目标分区固定，界面不提供更改入口。</td></tr>
+        </table>
+      </div>
+    </section>
+
+    
+    <section data-view="tempboot">
+      <h2 data-i18n="tbTitle">临时启动</h2>
+      <p class="lede" data-i18n="tbLede">上传内核镜像与设备树两个文件，直接跳到内存里的系统。</p>
+
+      <div class="readout dense" style="margin-bottom:16px">
+        <table>
+          <tr><td data-i18n="tbNote1">该镜像只存在于内存，不写入任何分区，也无法保存 —— 仅本次会话有效。</td></tr>
+          <tr><td data-i18n="tbNote2">两个文件都上传成功后立即跳转；断电或重启即彻底消失，opt 分区不受影响。</td></tr>
+          <tr><td data-i18n="tbNote3">上传的是裸内核 image 与板级 dtb 两个文件（不解析 itb）；内核上限 32 MiB、设备树上限 128 KiB。</td></tr>
+          <tr><td id="irfsLast">—</td></tr>
+        </table>
+      </div>
+
+      <div class="field">
+        <label for="irfsImg" data-i18n="tbImage">内核镜像</label>
+        <div class="file">
+          <input type="file" id="irfsImg" onchange="onIrfsPick()">
+          <span class="nm" id="irfsImgName" data-i18n="noFile">未选择文件</span>
+        </div>
+        <div class="note" data-i18n="tbImageNote">裸 arm64 Image，例如 Image-initramfs</div>
+      </div>
+
+      <div class="field">
+        <label for="irfsDtb" data-i18n="tbDtb">设备树</label>
+        <div class="file">
+          <input type="file" id="irfsDtb" onchange="onIrfsPick()">
+          <span class="nm" id="irfsDtbName" data-i18n="noFile">未选择文件</span>
+        </div>
+        <div class="note" data-i18n="tbDtbNote">板级 dtb，例如 image-ipq9574-nokia-beacon-10.dtb</div>
+      </div>
+
+      <div class="field" style="margin-top:14px">
+        <label for="irfsCmd" data-i18n="tbCmd">附加内核命令行</label>
+        <textarea id="irfsCmd" class="mono" rows="2"></textarea>
+      </div>
+
+      <div class="btnrow">
+        <button class="btn act" onclick="ask('jumpirfs')" data-i18n="tbGo">上传并立即跳转</button>
+      </div>
+
+      <div class="progress" id="prog2">
+        <div class="track"><i id="bar2"></i></div>
+        <div class="meta"><span id="pmsg2"></span><span id="pnum2">0%</span></div>
+      </div>
+    </section>
+
+    
+    <section data-view="settings">
+      <h2 data-i18n="seTitle">设置</h2>
+
+      <h3 data-i18n="seBoot">跳转设置</h3>
+      
+      <div class="field">
+        <label for="fKernel" data-i18n="stKernel">内核源</label>
+        <input id="fKernel" type="text" class="mono" placeholder="…">
+      </div>
+      <div class="field">
+        <label for="fDtb" data-i18n="stDtb">设备树</label>
+        <input id="fDtb" type="text" class="mono" placeholder="…">
+      </div>
+      <div class="field">
+        <label for="fCmd" data-i18n="stCmd">内核命令行</label>
+        <textarea id="fCmd" class="mono" rows="2" placeholder="root=... rw rootwait rootfstype=ext4"></textarea>
+      </div>
+      <div class="two">
+        <div class="field">
+          <label for="fBase" data-i18n="stBase">内存基址</label>
+          <input id="fBase" type="text" class="mono" placeholder="0x40000000">
+        </div>
+        <div class="field">
+          <label for="fSize" data-i18n="stSize">预留窗口</label>
+          <input id="fSize" type="text" class="mono" placeholder="0x40000000">
+        </div>
+      </div>
+      <div class="field">
+        <label for="fBootlog" data-i18n="stBootlog">跳转取证日志（kjump --bootlog）</label>
+        <input id="fBootlog" type="text" class="mono" placeholder="…">
+        <div class="note" data-i18n="stBootlogNote">每次跳转的全程记录，逐行 fsync。跳转中途死机时它是唯一证据。</div>
+      </div>
+
+      <h3 data-i18n="sePreview">实际执行的命令</h3>
+      <div class="cmdline" id="cmdPreview">—</div>
+
+      <div class="btnrow" style="margin-top:14px">
+        <button class="btn act" onclick="saveSettings()" data-i18n="seSave">保存</button>
+        <button class="btn quiet" onclick="resetSettings()" data-i18n="seReset">恢复默认</button>
+      </div>
+
+      <h3 data-i18n="seLog">操作日志</h3>
+      <div class="field">
+        <label for="logPath" data-i18n="seLogPath">输出路径</label>
+        <input id="logPath" type="text" class="mono" placeholder="…">
+        <div class="note" data-i18n="seLogPathNote">写在 /configs 上可跨重启保留，但该分区可用空间有限。达到上限即轮转，剩余空间低于下限则停止写入。</div>
+      </div>
+      <div class="two">
+        <div class="field">
+          <label for="logMax" data-i18n="seLogMax">单文件上限</label>
+          <input id="logMax" type="text" class="mono" placeholder="2M">
+        </div>
+        <div class="field">
+          <label for="logKeep" data-i18n="seLogKeep">保留份数</label>
+          <input id="logKeep" type="number" min="0" max="9" placeholder="3">
+        </div>
+      </div>
+      <div class="field">
+        <label for="logFloor" data-i18n="seLogFloor">可用空间下限</label>
+        <input id="logFloor" type="text" class="mono" placeholder="8M">
+        <div class="note" data-i18n="seLogFloorNote">所在分区剩余空间低于此值时停止写入，宁可丢日志也不撑爆分区。</div>
+      </div>
+      <label class="check" style="margin:4px 0 14px">
+        <input type="checkbox" id="logRotate" checked>
+        <span><span data-i18n="seLogRotate">超过上限时轮转</span>
+              <span class="d" data-i18n="seLogRotateD">关闭则达到上限后停止写入</span></span>
+      </label>
+
+      <div class="readout dense" style="max-width:620px;margin-bottom:14px">
+        <table>
+          <tr><th data-i18n="seLogNow">当前日志</th><td class="mono" id="logNow">—</td></tr>
+          <tr><th data-i18n="seLogFree">所在分区剩余</th><td class="mono" id="logFree">—</td></tr>
+        </table>
+      </div>
+
+      <div class="btnrow">
+        <button class="btn act" onclick="saveLog()" data-i18n="seLogSave">保存日志设置</button>
+        <button class="btn fault" onclick="ask('logclear')" data-i18n="seLogClear">立即清理日志</button>
+      </div>
+    </section>
+
+    
+    <section data-view="terminal">
+      <h2 data-i18n="tmTitle">终端</h2>
+      <p class="lede" data-i18n="tmLede">每次执行一条命令，输出回显在下方。</p>
+
+      <div class="readout dense" style="max-width:920px;margin-bottom:14px">
+        <table>
+          <tr><td data-i18n="tmHint">每次只执行一条命令，命令之间不保留状态（不保持工作目录与环境变量）。</td></tr>
+          <tr><td data-i18n="tmHint2">不要运行会持续输出、不会自己结束的命令（例如 tail -f、top、watch、不带 -c 的 ping）——它们会一直占住连接。</td></tr>
+        </table>
+      </div>
+
+      <div class="term" id="term"></div>
+
+      <div class="termline">
+        <span class="ps">$</span>
+        <input id="cmd" type="text" class="mono" autocomplete="off" spellcheck="false"
+               onkeydown="if(event.key==='Enter')runCmd()">
+        <button class="btn act" onclick="runCmd()" data-i18n="tmRun">执行</button>
+        <button class="btn quiet" onclick="termClear()" data-i18n="tmClear">清屏</button>
+      </div>
+    </section>
+
+    
+    <section data-view="logs">
+      <h2 data-i18n="lgTitle">日志</h2>
+      <p class="lede" data-i18n="lgLede">三种来源，含义不同，分别查看。</p>
+
+      <div class="btnrow" id="logSrc" style="margin-bottom:8px">
+        <button class="btn act" data-src="action"  data-i18n="lgSrcAction">控制面操作日志</button>
+        <button class="btn"     data-src="bootlog" data-i18n="lgSrcBootlog">上次跳转取证</button>
+        <button class="btn"     data-src="dmesg"   data-i18n="lgSrcDmesg">内核 dmesg</button>
+      </div>
+      <p class="lede" id="logDesc" style="margin-bottom:12px"></p>
+
+      <div class="btnrow" style="margin-bottom:12px">
+        <button class="btn act" onclick="loadLog()" data-i18n="lgReload">刷新</button>
+        <button class="btn quiet" onclick="clearView()" data-i18n="lgClearView">清屏</button>
+      </div>
+
+      <div class="term" id="logbox"></div>
+    </section>
+
+  </main>
+</div>
+
+<div class="scrim" id="scrim">
+  <div class="dialog" role="dialog" aria-modal="true">
+    <h4 id="dlgTitle"></h4>
+    <div class="box" id="dlgWarn"></div>
+    <p id="dlgBody"></p>
+    <div class="field" style="margin-bottom:0">
+      <label for="dlgInput"><span data-i18n="dlgType">输入</span>
+        <span class="mono" id="dlgWord" style="font-weight:700"></span>
+        <span data-i18n="dlgConfirm">以确认</span></label>
+      <input id="dlgInput" type="text" class="mono" autocomplete="off">
+    </div>
+    <div class="foot">
+      <button class="btn quiet" onclick="closeDlg()" data-i18n="dlgCancel">取消</button>
+      <button class="btn fault" id="dlgOk" onclick="doDlg()" disabled data-i18n="dlgGo">确认执行</button>
+    </div>
+  </div>
+</div>
+
+<script id="kfs-defaults" type="application/json">{
+
+  "kernel":   "/opt/boot/Image",
+  "dtb":      "/opt/boot/image-ipq9574-nokia-beacon-10.dtb",
+  "cmdline":  "root=/dev/mmcblk0p34 rw rootwait rootfstype=ext4",
+  "irfs_cmdline": "root=/dev/mmcblk0p34 console=ttyMSM0,115200n8 clk_ignore_unused panic=10 initcall_debug",
+  "mem_base": "0x40000000",
+  "mem_size": "0x40000000",
+  "bootlog":  "/tmp/kexec/state/kexec-boot.log",
+  "ko_name":  "kexec-lite-54.ko",
+
+  "log_path":   "/tmp/kexec/state/failsafe.log",
+  "log_max":    "4M",
+  "log_keep":   "3",
+  "log_floor":  "8M",
+  "log_rotate": "1",
+
+  "opt_dev":    "/dev/mmcblk0p34",
+  "opt_mnt":    "/opt",
+  "upload_dir": "/tmp/kexec/upload",
+  "df_path":    "/tmp",
+
+  "kexec_dir":   "",
+  "http_docroot": "",
+  "thttpd_bin":  "",
+  "thttpd_pid":  "/tmp/kexec/state/thttpd.pid",
+  "thttpd_log":  "/tmp/kexec/state/thttpd.log",
+
+  "http_port":   "1717",
+  "http_cgipat": "**.cgi",
+  "http_user":   "root",
+  "http_bind":   "",
+
+  "chunk_size":   "1048576",
+  "exec_timeout": "20",
+
+  "wps_reg":     "0x01025004",
+  "wps_window":  "9",
+  "wps_poll_ms": "200",
+  "led_wps":     "/sys/class/leds/wps_g/brightness",
+  "qfprom_auth": "/sys/devices/system/qfprom/qfprom0/authenticate",
+
+  "bootlog_max_kb": "64",
+  "dtb_max_kb":     "128",
+  "img_max_mb":     "32",
+
+  "ext4_label":    "opt",
+  "ext4_features": "^metadata_csum_seed,^bigalloc",
+  "ext4_opts":     "lazy_itable_init=0,lazy_journal_init=0"
+}</script>
+
+<script>
+
+const I18N = {
+  zh:{
+    dvModel:'设备型号', dvSoc:'SoC', dvCpu:'CPU', dvKernel:'内核',
+    grpDevice:'设备', grpConfig:'配置', grpTools:'工具',
+    navOverview:'概览', navBoot:'启动', navStorage:'存储', navTemp:'临时启动',
+    navSettings:'设置', navTerminal:'终端', navLogs:'日志',
+    syRedline:'红线自检', syOpt:'opt 分区', syPayload:'跳转载荷', syMode:'启动模式',
+    chipOffline:'未连接', chipOnline:'已连接',
+    noData:'—', noFile:'未选择文件',
+
+    ovTitle:'概览', ovLede:'本机当前状态。数值均为只读采集。',
+    ovRedline:'红线项', ovStorage:'存储', ovRecent:'最近事件',
+    ovOptPart:'opt 分区', ovBootDir:'opt 内 /boot', ovToolDir:'工具目录',
+    stNormal:'正常', stFused:'已熔丝', stMountable:'可挂载', stReady:'齐备', stMissing:'缺失',
+
+    btTitle:'启动', btLede:'选择下次开机做什么。改动写入failsafe安装目录的配置文件内，不影响 opt 分区。',
+    btMode:'启动模式', btJump:'立即跳转', btSave:'保存', btSummary:'当前设置摘要',
+    mOptT:'跳转 opt',       mOptD:'用当前设置跳转到 p34 上的系统',
+    mHoldT:'本次留在 stock', mHoldD:'一次性标记，下次开机恢复跳转',
+    mStayT:'一直留在 stock', mStayD:'持久标记，直到在此处解除',
+    modeOpt:'跳转 opt', modeHold:'本次留 stock', modeStay:'一直留 stock',
+
+    srTitle:'存储', srLede:'opt 分区是自包含的：内核、设备树、根文件系统都在 p34 内。',
+    srSource:'镜像来源', srSha:'sha256（可选，留空则不校验）',
+    srAutoReboot:'刷写后自动重启', srAutoRebootD:'写入完成并校验通过后自动重启设备',
+    srFlash:'刷写 opt', srWipe:'抹除并格式化为 ext4', srNotes:'注意事项',
+    srNote1:'格式化使用固定 ext4 特性集：排除 orphan_file、metadata_csum_seed、casefold、bigalloc，并关闭 lazy_itable_init 与 lazy_journal_init。',
+    srNote2:'写入前校验 ext4 魔数 0x53EF 与镜像长度；目标分区固定，界面不提供更改入口。',
+
+    tbTitle:'临时启动', tbLede:'上传内核镜像与设备树两个文件，直接跳到内存里的系统。',
+    tbNote1:'该镜像只存在于内存，不写入任何分区，也无法保存 —— 仅本次会话有效。',
+    tbNote2:'两个文件都上传成功后立即跳转；断电或重启即彻底消失，opt 分区不受影响。',
+    tbNote3:'上传的是裸内核 image 与板级 dtb 两个文件（不解析 itb）；内核上限 32 MiB、设备树上限 128 KiB。',
+    tbImage:'内核镜像', tbImageNote:'裸 arm64 Image，例如 Image-initramfs',
+    tbDtb:'设备树',   tbDtbNote:'板级 dtb，例如 image-ipq9574-nokia-beacon-10.dtb',
+    tbCmd:'附加内核命令行', tbGo:'上传并立即跳转', tbLastFail:'上次跳转失败',
+
+    seTitle:'设置', seBoot:'跳转设置', sePreview:'实际执行的命令',
+    seSave:'保存', seReset:'恢复默认',
+    seLog:'操作日志', seLogPath:'输出路径',
+    seLogPathNote:'写在 /configs 上可跨重启保留，但该分区可用空间有限。达到上限即轮转，剩余空间低于下限则停止写入。',
+    seLogFloor:'可用空间下限',
+    seLogFloorNote:'所在分区剩余空间低于此值时停止写入，宁可丢日志也不撑爆分区。',
+    seLogMax:'单文件上限', seLogKeep:'保留份数',
+    seLogRotate:'超过上限时轮转', seLogRotateD:'关闭则达到上限后停止写入',
+    seLogNow:'当前日志', seLogFree:'所在分区剩余',
+    seLogSave:'保存日志设置', seLogClear:'立即清理日志',
+
+    stKernel:'内核源', stDtb:'设备树', stCmd:'内核命令行',
+    stBase:'内存基址', stSize:'预留窗口', stRoot:'根文件系统', stMode:'模式',
+    stBootlog:'跳转取证日志（kjump --bootlog）',
+    stBootlogNote:'每次跳转的全程记录，逐行 fsync。跳转中途死机时它是唯一证据。',
+
+    tmTitle:'终端', tmLede:'每次执行一条命令，输出回显在下方。',
+    tmRun:'执行', tmClear:'清屏', tmEmpty:'（无输出）',
+    tmHint:'每次只执行一条命令，命令之间不保留状态（不保持工作目录与环境变量）。',
+    tmHint2:'不要运行会持续输出、不会自己结束的命令（例如 tail -f、top、watch、不带 -c 的 ping）—— 它们会一直占住连接。',
+    tmNoBackend:'未连接后端：命令不会真正执行。',
+
+    lgTitle:'日志', lgLede:'三种来源，含义不同，分别查看。',
+    lgReload:'刷新', lgClearView:'清屏', lgEmpty:'（空）',
+    lgSrcAction:'控制面操作日志', lgSrcBootlog:'上次跳转取证',
+    lgSrcDmesg:'内核 dmesg',
+    lgDescAction:'控制面自身的操作记录。路径与轮转策略在「设置 → 操作日志」中配置。',
+    lgDescBootlog:'kjump --bootlog 的输出，记录上一次跳转的全过程，逐行 fsync。路径在「设置 → 跳转设置」中配置。',
+    lgDescDmesg:'当前 stock 内核的环形缓冲，由 dmesg 读取。',
+
+    dlgType:'输入', dlgConfirm:'以确认', dlgCancel:'取消', dlgGo:'确认执行',
+    dJumpT:'确认跳转', dJumpW:'跳转后本界面立即消失。',
+    dJumpB:'若新系统起不来，重启回 stock 后再长按 WPS 即可回到本界面。',
+    dFlashT:'确认刷写 opt 分区', dFlashW:'这会覆盖目标分区上的全部数据。',
+    dFlashB:'写入前会校验镜像格式与长度。本工具位于 /configs，不受影响。',
+    dWipeT:'确认抹除并格式化 opt 分区', dWipeW:'这会不可逆地销毁目标分区上的全部数据。',
+    dWipeB:'抹除后按固定 ext4 特性集重新格式化。本工具位于 /configs，不受影响。',
+    dIrfsT:'确认临时跳转', dIrfsW:'跳转后本界面立即消失，且该镜像不会被保存。',
+    dIrfsB:'这是一次性的：断电或重启后，设备回到原来的状态。',
+    dLogT:'确认清理日志', dLogW:'这会删除日志文件及其轮转副本。',
+    dLogB:'清理不影响其他任何数据。',
+    dConfirmed:'已确认', dJumped:'跳转已发起',
+    pUpload:'正在上传…', pWrite:'正在写入目标分区…',
+    pWipe:'正在抹除并格式化…', pDone:'完成', pReboot:'即将重启',
+
+    saved:'已保存', reset:'已恢复默认',
+    upFail:'上传失败', noFilePick:'请先选择文件',
+    jumpSent:'跳转已发出：连接被中断（跳转成功时就是这样），请稍候刷新页面'
+  },
+  en:{
+    dvModel:'Model', dvSoc:'SoC', dvCpu:'CPU', dvKernel:'Kernel',
+    grpDevice:'Device', grpConfig:'Config', grpTools:'Tools',
+    navOverview:'Overview', navBoot:'Boot', navStorage:'Storage', navTemp:'Temporary boot',
+    navSettings:'Settings', navTerminal:'Terminal', navLogs:'Logs',
+    syRedline:'Red lines', syOpt:'opt partition', syPayload:'Payload', syMode:'Boot mode',
+    chipOffline:'offline', chipOnline:'online',
+    noData:'—', noFile:'no file selected',
+
+    ovTitle:'Overview', ovLede:'Current state of this device. All values are read-only.',
+    ovRedline:'Red lines', ovStorage:'Storage', ovRecent:'Recent events',
+    ovOptPart:'opt partition', ovBootDir:'/boot inside opt', ovToolDir:'Tool directory',
+    stNormal:'normal', stFused:'fused', stMountable:'mountable', stReady:'ready', stMissing:'missing',
+
+    btTitle:'Boot', btLede:'Choose what happens on the next power-up. Written to config files; the opt partition is untouched.',
+    btMode:'Boot mode', btJump:'Jump now', btSave:'Save', btSummary:'Current settings',
+    mOptT:'Jump to opt',       mOptD:'Boot the system on p34 using the current settings',
+    mHoldT:'Stay in stock once', mHoldD:'One-shot flag; jumping resumes on the next power-up',
+    mStayT:'Stay in stock', mStayD:'Persistent flag until cleared here',
+    modeOpt:'jump to opt', modeHold:'stay once', modeStay:'stay',
+
+    srTitle:'Storage', srLede:'The opt partition is self-contained: kernel, device tree and root filesystem all live inside p34.',
+    srSource:'Image source', srSha:'sha256 (optional; skipped when empty)',
+    srAutoReboot:'Reboot after flashing', srAutoRebootD:'Restart the device once the write completes and verifies',
+    srFlash:'Flash opt', srWipe:'Erase and format as ext4', srNotes:'Constraints',
+    srNote1:'Formatting uses a fixed ext4 feature set: orphan_file, metadata_csum_seed, casefold and bigalloc are excluded, and lazy_itable_init / lazy_journal_init are disabled.',
+    srNote2:'The image is checked for the ext4 magic 0x53EF and for length before writing. The target partition is fixed and cannot be changed here.',
+
+    tbTitle:'Temporary boot', tbLede:'Upload a kernel image and a device tree, then boot straight into a system that lives in memory.',
+    tbNote1:'The image exists only in memory. It writes no partition and cannot be saved — this session only.',
+    tbNote2:'It jumps once both files are uploaded; a power cycle wipes it completely and the opt partition is untouched.',
+    tbNote3:'Two separate files: a raw kernel image and a board dtb (no itb parsing). Kernel limit 32 MiB, dtb limit 128 KiB.',
+    tbImage:'Kernel image', tbImageNote:'raw arm64 Image, e.g. Image-initramfs',
+    tbDtb:'Device tree',    tbDtbNote:'board dtb, e.g. image-ipq9574-nokia-beacon-10.dtb',
+    tbCmd:'Extra kernel command line', tbGo:'Upload and jump now', tbLastFail:'Last jump failed',
+
+    seTitle:'Settings', seBoot:'Handover settings', sePreview:'Command that will actually run',
+    seSave:'Save', seReset:'Reset to defaults',
+    seLog:'Action log', seLogPath:'Output path',
+    seLogPathNote:'Writing to /configs survives reboots, but that partition has limited free space. The file rotates at its limit and writing stops once free space drops below the floor.',
+    seLogFloor:'Free-space floor',
+    seLogFloorNote:'Writing stops when the partition has less free space than this — logs are dropped rather than filling the partition.',
+    seLogMax:'Max file size', seLogKeep:'Files kept',
+    seLogRotate:'Rotate when the limit is reached', seLogRotateD:'Turn off to stop writing at the limit instead',
+    seLogNow:'Current log', seLogFree:'Free on its partition',
+    seLogSave:'Save log settings', seLogClear:'Clear log now',
+
+    stKernel:'Kernel source', stDtb:'Device tree', stCmd:'Kernel command line',
+    stBase:'Memory base', stSize:'Reserved window', stRoot:'Root filesystem', stMode:'Mode',
+    stBootlog:'Handover forensic log (kjump --bootlog)',
+    stBootlogNote:'A full record of each handover, fsynced line by line. If a handover dies midway, this is the only evidence.',
+
+    tmTitle:'Terminal', tmLede:'One command per run; output is echoed below.',
+    tmRun:'Run', tmClear:'Clear', tmEmpty:'(no output)',
+    tmHint:'One command at a time. Nothing persists between commands — no working directory, no environment.',
+    tmHint2:'Do not run commands that keep printing and never exit (tail -f, top, watch, ping without -c) — they hold the connection open indefinitely.',
+    tmNoBackend:'No backend connected: commands are not actually executed.',
+
+    lgTitle:'Logs', lgLede:'Three different sources. Pick one.',
+    lgReload:'Reload', lgClearView:'Clear view', lgEmpty:'(empty)',
+    lgSrcAction:'Control plane actions', lgSrcBootlog:'Last handover',
+    lgSrcDmesg:'Kernel dmesg',
+    lgDescAction:'What the control plane itself did. Path and rotation are configured under Settings → Action log.',
+    lgDescBootlog:'Output of kjump --bootlog, the full record of the last handover, fsynced line by line. Path is set under Settings → Handover settings.',
+    lgDescDmesg:'Ring buffer of the running stock kernel, read via dmesg.',
+
+    dlgType:'Type', dlgConfirm:'to confirm', dlgCancel:'Cancel', dlgGo:'Confirm',
+    dJumpT:'Confirm handover', dJumpW:'This interface disappears immediately.',
+    dJumpB:'If the new system does not come up, reboot into stock and hold WPS to return here.',
+    dFlashT:'Confirm flashing the opt partition', dFlashW:'This overwrites everything on the target partition.',
+    dFlashB:'The image format and length are verified before writing. This tool lives in /configs and is unaffected.',
+    dWipeT:'Confirm erasing and formatting the opt partition', dWipeW:'This irreversibly destroys everything on the target partition.',
+    dWipeB:'The partition is then formatted with the fixed ext4 feature set. This tool lives in /configs and is unaffected.',
+    dIrfsT:'Confirm temporary handover', dIrfsW:'This interface disappears immediately and the image is not saved.',
+    dIrfsB:'It is one-shot: after a power cycle the device returns to its previous state.',
+    dLogT:'Confirm clearing the log', dLogW:'This deletes the log file and its rotated copies.',
+    dLogB:'Nothing else is affected.',
+    dConfirmed:'Confirmed', dJumped:'Handover initiated',
+    pUpload:'Uploading…', pWrite:'Writing to the target partition…',
+    pWipe:'Erasing and formatting…', pDone:'done', pReboot:'rebooting',
+
+    saved:'Saved', reset:'Reset to defaults',
+    upFail:'Upload failed', noFilePick:'Pick a file first',
+    jumpSent:'Jump submitted: the connection was dropped (that is what success looks like). Refresh in a moment.'
+  }
+};
+
+let lang = 'zh';
+const t = k => (I18N[lang][k] !== undefined ? I18N[lang][k] : k);
+
+function applyLang(){
+  document.documentElement.lang = (lang === 'zh' ? 'zh-CN' : 'en');
+  document.querySelectorAll('[data-i18n]').forEach(el=>{ el.textContent = t(el.dataset.i18n); });
+  document.getElementById('btnZh').setAttribute('aria-pressed', lang === 'zh');
+  document.getElementById('btnEn').setAttribute('aria-pressed', lang === 'en');
+  renderStatus();
+  updateLogDesc();
+  updateCmdPreview();
+  try{ localStorage.setItem('kfs-lang', lang); }catch(e){}
+}
+function setLang(l){ lang = l; applyLang(); }
+try{ const s = localStorage.getItem('kfs-lang'); if(s) lang = s; }catch(e){}
+
+let DEFAULTS = {};
+try{
+  const raw = (document.getElementById('kfs-defaults') || {}).textContent || '';
+  const trimmed = raw.trim();
+  if(trimmed && trimmed !== 'null') DEFAULTS = JSON.parse(trimmed);
+}catch(e){ DEFAULTS = {}; }
+
+function applyDefaults(){
+  const map = {
+    fKernel:'kernel', fDtb:'dtb', fCmd:'cmdline', irfsCmd:'irfs_cmdline',
+    fBase:'mem_base', fSize:'mem_size', fBootlog:'bootlog',
+    logPath:'log_path', logMax:'log_max', logKeep:'log_keep', logFloor:'log_floor'
+  };
+  Object.keys(map).forEach(id=>{
+    const el = document.getElementById(id);
+    if(el && DEFAULTS[map[id]] !== undefined) el.value = DEFAULTS[map[id]];
+  });
+  const rot = document.getElementById('logRotate');
+  if(rot && DEFAULTS.log_rotate !== undefined) rot.checked = (DEFAULTS.log_rotate === '1');
+}
+
+let STATUS = null;
+
+async function loadStatus(){
+  try{
+    const r = await fetch('cgi-bin/status.cgi', {cache:'no-store'});
+    if(!r.ok) throw 0;
+    STATUS = await r.json();
+    document.getElementById('linkChip').dataset.i18n = 'chipOnline';
+    document.getElementById('linkChip').textContent = t('chipOnline');
+    document.getElementById('linkChip').classList.add('on');
+  }catch(e){
+    STATUS = null;
+    document.getElementById('linkChip').dataset.i18n = 'chipOffline';
+    document.getElementById('linkChip').textContent = t('chipOffline');
+    document.getElementById('linkChip').classList.remove('on');
+  }
+  renderStatus();
+  renderLastJump();
+}
+
+let lastJumpSeen = '';
+function renderLastJump(){
+  const el = document.getElementById('irfsLast');
+  if(!el) return;
+  const lj = STATUS && STATUS.last_jump;
+  if(!lj || !lj.rc){ el.textContent = '—'; return; }
+  el.textContent = t('tbLastFail') + ': ' + lj.text + ' (rc=' + lj.rc + ', ' + lj.time + ')';
+  const key = lj.time + ':' + lj.rc;
+  if(key !== lastJumpSeen){
+    lastJumpSeen = key;
+    note(t('tbLastFail') + ': ' + lj.text + ' (rc=' + lj.rc + ')');
+  }
+}
+
+function set(id, v){ const el = document.getElementById(id); if(el) el.textContent = (v === undefined || v === null || v === '') ? '—' : v; }
+function setPill(id, ok, label){
+  const el = document.getElementById(id); if(!el) return;
+  el.innerHTML = '<span class="pill ' + (ok ? 'ok' : 'fault') + '"></span>';
+  el.firstChild.textContent = label;
+}
+function led(id, cls){ const el = document.getElementById(id); if(el){ el.className = 'led ' + cls; } }
+
+function renderStatus(){
+  const s = STATUS;
+
+  const d = (s && s.device) || {};
+  set('dvModel',  d.model);
+  set('dvSoc',    d.board);
+  set('dvCpu',    d.cpu);
+  set('dvKernel', d.kernel);
+  ['dvModel','dvSoc','dvCpu','dvKernel'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.classList.toggle('na', !(s && el.textContent !== '—'));
+  });
+
+  const rl = (s && s.redline) || {};
+  set('rlSecboot',    rl.secboot);
+  set('rlSbflag',     rl.sb_flag);
+  set('rlBootfail',   rl.boot_fail_count);
+  set('rlFlashtype',  rl.flash_type);
+  set('rlAuth',       rl.authenticate);
+  const rlOk = s && rl.secboot === '2' && rl.flash_type === '5';
+  [['rlSecbootS', rl.secboot === '2'], ['rlSbflagS', !!rl.sb_flag],
+   ['rlBootfailS', rl.boot_fail_count !== undefined], ['rlFlashtypeS', rl.flash_type === '5'],
+   ['rlAuthS', rl.authenticate === '1']].forEach(([id, ok])=>{
+    setPill(id, !!ok, ok ? t('stNormal') : '—');
+  });
+  led('syRedlineLed', rlOk ? 'ok' : (s ? 'fault' : 'off'));
+  set('syRedline', s ? (rlOk ? t('stNormal') : '—') : '—');
+
+  const o = (s && s.opt) || {};
+  set('ovOpt', o.dev ? o.dev + ' ' + (o.fstype || '') : '—');
+  setPill('ovOptS', !!o.mountable, o.mountable ? t('stMountable') : '—');
+  const p = (s && s.boot_payload) || {};
+  set('ovPayload', (p.image && p.dtb) ? ('Image ' + fmtBytes(p.image_size) + ' · dtb ' + fmtBytes(p.dtb_size)) : '—');
+  setPill('ovPayloadS', !!(p.image && p.dtb), (p.image && p.dtb) ? t('stReady') : t('stMissing'));
+  set('ovTool', (s && s.tool_dir) || '—');
+  set('ovToolS', (s && s.configs_free_kb) ? fmtBytes(s.configs_free_kb * 1024) : '—');
+  set('syOpt', o.fstype ? o.fstype : '—');
+  led('syOptLed', o.mountable ? 'ok' : (s ? 'warn' : 'off'));
+  led('syPayloadLed', (p.image && p.dtb) ? 'ok' : (s ? 'warn' : 'off'));
+  set('syPayload', (p.image && p.dtb) ? t('stReady') : '—');
+
+  const modeMap = {opt:'modeOpt', hold:'modeHold', stay:'modeStay'};
+  const mode = (s && s.boot_mode) || 'opt';
+  set('syMode', t(modeMap[mode] || 'modeOpt'));
+  document.querySelectorAll('#choices .choice').forEach(c=>{
+    c.setAttribute('aria-checked', String(c.dataset.mode === mode));
+  });
+  set('bsKernel', (s && s.recipe && s.recipe.kernel) || '—');
+  set('bsRoot',   (s && s.recipe && s.recipe.root)   || '—');
+  set('bsMode',   t(modeMap[mode] || 'modeOpt'));
+
+  if(s && s.recipe){
+    if(s.recipe.kernel)   document.getElementById('fKernel').value  = s.recipe.kernel;
+    if(s.recipe.dtb)      document.getElementById('fDtb').value     = s.recipe.dtb;
+    if(s.recipe.cmdline)  document.getElementById('fCmd').value     = s.recipe.cmdline;
+    if(s.recipe.mem_base) document.getElementById('fBase').value    = s.recipe.mem_base;
+    if(s.recipe.mem_size) document.getElementById('fSize').value    = s.recipe.mem_size;
+    if(s.recipe.bootlog)  document.getElementById('fBootlog').value = s.recipe.bootlog;
+  }
+
+  if(s && s.log){
+    if(s.log.path) document.getElementById('logPath').value = s.log.path;
+    if(s.log.max)  document.getElementById('logMax').value  = s.log.max;
+    set('logNow', (s.log.size !== undefined) ? fmtBytes(s.log.size) : '—');
+    set('logFree', s.log.free_kb !== undefined ? fmtBytes(s.log.free_kb * 1024) : '—');
+  }
+  updateCmdPreview();
+}
+
+function fmtBytes(n){
+  if(n === undefined || n === null) return '—';
+  const u = ['B','KB','MB','GB']; let i = 0; n = Number(n);
+  while(n >= 1024 && i < u.length - 1){ n /= 1024; i++; }
+  return (i === 0 ? n : n.toFixed(1)) + ' ' + u[i];
+}
+
+document.querySelectorAll('#nav button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('#nav button').forEach(b=>b.setAttribute('aria-current','false'));
+    btn.setAttribute('aria-current','true');
+    document.querySelectorAll('#pane > section').forEach(s=>s.removeAttribute('data-active'));
+    document.querySelector('[data-view="'+btn.dataset.go+'"]').setAttribute('data-active','');
+    document.getElementById('pane').scrollTop = 0;
+    if(btn.dataset.go === 'logs') loadLog();
+  });
+});
+
+let pendingMode = 'opt';
+document.querySelectorAll('#choices .choice').forEach(c=>{
+  const pick = ()=>{
+    document.querySelectorAll('#choices .choice').forEach(x=>x.setAttribute('aria-checked','false'));
+    c.setAttribute('aria-checked','true');
+    pendingMode = c.dataset.mode;
+  };
+  c.addEventListener('click', pick);
+  c.addEventListener('keydown', e=>{ if(e.key===' '||e.key==='Enter'){ e.preventDefault(); pick(); }});
+});
+function saveMode(){
+  post('mode.cgi', {mode: pendingMode}).then(()=>{ note(t('saved')); loadStatus(); });
+}
+
+let imgFileObj = null, irfsImgObj = null, irfsDtbObj = null;
+function onImgPick(){
+  const f = document.getElementById('imgFile').files[0];
+  imgFileObj = f || null;
+  document.getElementById('imgName').textContent = f ? (f.name + '  ' + fmtBytes(f.size)) : t('noFile');
+}
+
+function onIrfsPick(){
+  const fi = document.getElementById('irfsImg').files[0];
+  const fd = document.getElementById('irfsDtb').files[0];
+  irfsImgObj = fi || null;
+  irfsDtbObj = fd || null;
+  document.getElementById('irfsImgName').textContent = fi ? (fi.name + '  ' + fmtBytes(fi.size)) : t('noFile');
+  document.getElementById('irfsDtbName').textContent = fd ? (fd.name + '  ' + fmtBytes(fd.size)) : t('noFile');
+}
+
+const DLG = {
+  jump:     {t:'dJumpT',   w:'dJumpW',   b:'dJumpB',   word:'JUMP'},
+  flash:    {t:'dFlashT',  w:'dFlashW',  b:'dFlashB',  word:'FLASH'},
+  wipe:     {t:'dWipeT',   w:'dWipeW',   b:'dWipeB',   word:'ERASE'},
+  jumpirfs: {t:'dIrfsT',   w:'dIrfsW',   b:'dIrfsB',   word:'JUMP'},
+  logclear: {t:'dLogT',    w:'dLogW',    b:'dLogB',    word:'CLEAR'}
+};
+let pending = null;
+
+function ask(kind){
+  const d = DLG[kind]; pending = kind;
+  document.getElementById('dlgTitle').textContent = t(d.t);
+  document.getElementById('dlgWarn').textContent  = t(d.w);
+  document.getElementById('dlgBody').textContent  = t(d.b);
+  document.getElementById('dlgWord').textContent  = d.word;
+  const inp = document.getElementById('dlgInput');
+  inp.value = ''; inp.placeholder = d.word;
+  document.getElementById('dlgOk').disabled = true;
+  document.getElementById('scrim').setAttribute('data-show','');
+  setTimeout(()=>inp.focus(), 40);
+}
+function closeDlg(){ document.getElementById('scrim').removeAttribute('data-show'); pending = null; }
+document.getElementById('dlgInput').addEventListener('input', e=>{
+  const w = DLG[pending] ? DLG[pending].word : '';
+  document.getElementById('dlgOk').disabled = (e.target.value.trim().toUpperCase() !== w);
+});
+function doDlg(){
+  const kind = pending; closeDlg();
+  if(kind === 'jump'){      post('jump.cgi', {}).then(()=>note(t('dJumped'))); return; }
+  if(kind === 'jumpirfs'){
+    if(!irfsImgObj || !irfsDtbObj){ note(t('noFilePick')); return; }
+    irfsUpload(irfsImgObj, irfsDtbObj, document.getElementById('irfsCmd').value,
+               'prog2','bar2','pmsg2','pnum2', t('pUpload'));
+    return;
+  }
+  if(kind === 'logclear'){ post('log.cgi', {action:'clear'}).then(()=>{ note(t('pDone')); loadStatus(); loadLog(); }); return; }
+  if(kind === 'flash'){
+    if(!imgFileObj){ note(t('noFilePick')); return; }
+    flashUpload(imgFileObj, document.getElementById('imgSha').value,
+                document.getElementById('autoReboot').checked,
+                'prog','bar','pmsg','pnum', t('pWrite'));
+    return;
+  }
+  if(kind === 'wipe'){ runProgress('prog','bar','pmsg','pnum', t('pWipe')); post('wipe.cgi', {}); }
+}
+
+let timers = {};
+function runProgress(box,bar,msg,num,text){
+  document.getElementById(box).setAttribute('data-show','');
+  document.getElementById(msg).textContent = text;
+  let p = 0; clearInterval(timers[box]);
+  timers[box] = setInterval(()=>{
+    p += Math.random()*9 + 3;
+    if(p >= 100){ p = 100; clearInterval(timers[box]); document.getElementById(msg).textContent = t('pDone'); }
+    document.getElementById(bar).style.width = p + '%';
+    document.getElementById(num).textContent = Math.floor(p) + '%';
+  }, 260);
+}
+
+function termWrite(text, cls){
+  const box = document.getElementById('term');
+  const d = document.createElement('div');
+  d.className = 'ln' + (cls ? ' ' + cls : '');
+  d.textContent = text;
+  box.appendChild(d); box.scrollTop = box.scrollHeight;
+}
+function termClear(){ document.getElementById('term').innerHTML = ''; }
+
+async function runCmd(){
+  const el = document.getElementById('cmd');
+  const v = el.value.trim();
+  if(!v) return;
+  termWrite('$ ' + v, 'in');
+  el.value = '';
+  try{
+    const r = await fetch('cgi-bin/exec.cgi', {
+      method: 'POST', cache: 'no-store',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({cmd: v}).toString()
+    });
+    const txt = await r.text();
+    termWrite(txt || t('tmEmpty'), 'out');
+  }catch(e){
+    termWrite(t('tmNoBackend'), 'dim');
+  }
+  el.focus();
+}
+
+let logSrc = 'action';
+
+document.querySelectorAll('#logSrc button').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('#logSrc button').forEach(x=>x.classList.remove('act'));
+    b.classList.add('act');
+    logSrc = b.dataset.src;
+    updateLogDesc();
+    loadLog();
+  });
+});
+function updateLogDesc(){
+  const el = document.getElementById('logDesc');
+  if(!el) return;
+  const k = {action:'lgDescAction', bootlog:'lgDescBootlog',
+             dmesg:'lgDescDmesg'}[logSrc];
+  el.textContent = t(k);
+}
+async function loadLog(){
+  const box = document.getElementById('logbox');
+  try{
+    const r = await fetch('cgi-bin/log.cgi?action=tail&src=' + logSrc + '&lines=200', {cache:'no-store'});
+    const txt = await r.text();
+    box.textContent = txt || t('lgEmpty');
+  }catch(e){ box.textContent = t('lgEmpty'); }
+  box.scrollTop = box.scrollHeight;
+}
+function clearView(){ document.getElementById('logbox').textContent = ''; }
+
+function updateCmdPreview(){
+  const k = document.getElementById('fKernel');
+  if(!k) return;
+  const v = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+
+  const p = (STATUS && STATUS.paths) || {};
+  const kd = p.kexec_dir || '?';
+  document.getElementById('cmdPreview').textContent =
+    kd + '/kjump --kernel "' + v('fKernel') +
+    '" --dtb "' + v('fDtb') +
+    '" --ko "' + kd + '/' + (p.ko || '?') +
+    '" --mem-base "' + v('fBase') + '" --mem-size "' + v('fSize') +
+    '" --bootlog "' + v('fBootlog') +
+    '" --append-cmdline "' + v('fCmd') + '"';
+}
+['fKernel','fDtb','fCmd','fBase','fSize','fBootlog'].forEach(id=>{
+  document.addEventListener('DOMContentLoaded', ()=>{
+    const el = document.getElementById(id); if(el) el.addEventListener('input', updateCmdPreview);
+  });
+});
+function saveSettings(){
+  post('settings.cgi', {
+    kernel:  document.getElementById('fKernel').value,
+    dtb:     document.getElementById('fDtb').value,
+    cmdline: document.getElementById('fCmd').value,
+    mem_base:document.getElementById('fBase').value,
+    mem_size:document.getElementById('fSize').value,
+    bootlog: document.getElementById('fBootlog').value
+  }).then(()=>note(t('saved')));
+}
+function resetSettings(){
+
+  post('settings.cgi', {action:'reset'}).then(()=>{ note(t('reset')); loadStatus(); });
+}
+function saveLog(){
+  post('settings.cgi', {
+    log_path:  document.getElementById('logPath').value,
+    log_max:   document.getElementById('logMax').value,
+    log_keep:  document.getElementById('logKeep').value,
+    log_floor: document.getElementById('logFloor').value,
+    log_rotate: document.getElementById('logRotate').checked ? '1' : '0'
+  }).then(()=>{ note(t('saved')); loadStatus(); });
+}
+
+function post(url, data){
+  const body = new URLSearchParams(data || {}).toString();
+  return fetch('cgi-bin/' + url, {
+    method:'POST', cache:'no-store',
+    headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body: body
+  }).catch(()=>{});
+}
+
+async function flashUpload(file, sha, reboot, box, bar, msg, num, text){
+  const setP = p => {
+    document.getElementById(bar).style.width = Math.round(p * 100) + '%';
+    document.getElementById(num).textContent = Math.round(p * 100) + '%';
+  };
+  document.getElementById(box).setAttribute('data-show','');
+  document.getElementById(msg).textContent = text;
+  setP(0);
+  try{
+    const b = await (await fetch(
+      'cgi-bin/flash.cgi?action=begin&size=' + file.size + '&sha=' + encodeURIComponent(sha || ''),
+      {method:'POST', cache:'no-store'})).json();
+    if(b.error) throw b.error;
+
+    const chunk = b.chunk;
+    if(!chunk) throw "backend did not return chunk size";
+    let off = 0;
+    while(off < file.size){
+      const end = Math.min(off + chunk, file.size);
+      const j = await (await fetch(
+        'cgi-bin/flash.cgi?action=chunk&id=' + encodeURIComponent(b.id) + '&off=' + off,
+        {method:'POST', cache:'no-store', body: file.slice(off, end)})).json();
+      if(j.error) throw j.error;
+      off = end; setP(off / file.size);
+    }
+
+    const f = await (await fetch(
+      'cgi-bin/flash.cgi?action=finish&id=' + encodeURIComponent(b.id),
+      {method:'POST', cache:'no-store'})).json();
+    if(!f.ok) throw (f.error || 'finish-failed');
+
+    document.getElementById(msg).textContent = t('pDone');
+    note(t('pDone') + (reboot ? ' · ' + t('pReboot') : ''));
+    if(reboot){
+      post('exec.cgi', {cmd:'reboot'});
+    }
+  }catch(e){
+    document.getElementById(msg).textContent = t('upFail') + ' (' + e + ')';
+  }
+  loadStatus();
+}
+
+async function deviceAlive(){
+  try{ return (await fetch('cgi-bin/status.cgi', {cache:'no-store'})).ok; }
+  catch(_){ return false; }
+}
+
+async function jsonReply(r){
+  const raw = await r.text();
+  try{ return JSON.parse(raw); }
+  catch(_){
+    throw 'HTTP ' + r.status + ' non-JSON reply: ' +
+          raw.slice(0, 200).replace(/\s+/g, ' ').trim();
+  }
+}
+
+async function irfsPut(what, file){
+  const r = await fetch('cgi-bin/irfs.cgi?action=put&what=' + what +
+                        '&name=' + encodeURIComponent(file.name),
+                        {method:'POST', cache:'no-store', body: file});
+  return await jsonReply(r);
+}
+
+async function irfsUpload(imgFile, dtbFile, cmdline, box, bar, msg, num, text){
+  const el = document.getElementById(msg);
+  const setP = p => {
+    document.getElementById(bar).style.width = Math.round(p * 100) + '%';
+    document.getElementById(num).textContent = Math.round(p * 100) + '%';
+  };
+  document.getElementById(box).setAttribute('data-show','');
+  el.textContent = text;
+  setP(0);
+  try{
+
+    const imgMb = parseInt(DEFAULTS.img_max_mb || '0', 10);
+    const dtbKb = parseInt(DEFAULTS.dtb_max_kb || '0', 10);
+    if(imgMb > 0 && imgFile.size > imgMb * 1048576) throw (t('tbImage') + ' > ' + imgMb + ' MiB');
+    if(dtbKb > 0 && dtbFile.size > dtbKb * 1024)    throw (t('tbDtb')   + ' > ' + dtbKb + ' KiB');
+
+    let j = await irfsPut('image', imgFile);
+    if(!j.ok) throw (j.text || j.error || 'image-upload-failed');
+    setP(0.5);
+
+    j = await irfsPut('dtb', dtbFile);
+    if(!j.ok) throw (j.text || j.error || 'dtb-upload-failed');
+    setP(0.8);
+
+    const r = await fetch('cgi-bin/irfs.cgi?action=jump'
+                          + '&image='   + encodeURIComponent(imgFile.name)
+                          + '&dtb='     + encodeURIComponent(dtbFile.name)
+                          + '&cmdline=' + encodeURIComponent(cmdline || ''),
+                          {method:'POST', cache:'no-store'});
+    const jj = await jsonReply(r);
+    if(!jj.ok) throw (jj.text || jj.error || 'jump-rejected');
+    setP(1);
+    el.textContent = t('pDone');
+  }catch(e){
+    if(await deviceAlive()){
+      el.textContent = t('upFail') + ' (' + e + ')';
+    }else{
+      el.textContent = t('jumpSent');
+      note(t('jumpSent'));
+    }
+  }
+}
+
+function note(text){ pushLogLine(text); }
+function pushLogLine(text){
+  const box = document.getElementById('logbox');
+  const d = document.createElement('div');
+  d.className = 'ln'; d.textContent = text;
+  box.appendChild(d); box.scrollTop = box.scrollHeight;
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  applyDefaults();
+  applyLang();
+  updateCmdPreview();
+  loadStatus();
+  setInterval(loadStatus, 5000);
+});
+applyDefaults();
+applyLang();
+</script>
+</body>
+</html>

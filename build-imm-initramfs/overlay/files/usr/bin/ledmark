@@ -1,0 +1,10 @@
+#!/bin/sh
+LED=/sys/class/leds/green:wps/brightness
+[ -e "$LED" ] || exit 0
+N=${1:-1}; i=0
+while [ $i -lt $N ]; do
+	echo 1 > "$LED"; sleep 0.25
+	echo 0 > "$LED"; sleep 0.3
+	i=$((i+1))
+done
+exit 0

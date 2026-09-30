@@ -1,0 +1,1 @@
+echo "b10diag: preinit running (03_b10_diag)" > /dev/kmsg 2>/dev/null

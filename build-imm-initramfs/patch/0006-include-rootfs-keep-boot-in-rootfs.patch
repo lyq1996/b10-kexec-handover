@@ -1,0 +1,23 @@
+diff --git a/include/rootfs.mk b/include/rootfs.mk
+index 7a160a9..96f0731 100644
+--- a/include/rootfs.mk
++++ b/include/rootfs.mk
+@@ -69,6 +69,10 @@ ifdef CONFIG_CLEAN_IPKG
+ endif
+ 
+ define prepare_rootfs
++# beacon10 phase2: /boot is deliberately NOT removed from the rootfs.
++# The daily firmware carries its kexec boot kit (kernel Image, board
++# dtb, kjump + kexec-lite modules) in /boot so a single ext4
++# image written to the stock "opt" partition is a complete deployment.
+ 	$(if $(2),@if [ -d '$(2)' ]; then \
+ 		$(call file_copy,$(2)/.,$(1)); \
+ 	fi)
+@@ -115,7 +119,6 @@ define prepare_rootfs
+ 
+ 	@-find $(1) -name .svn -o -name .git -o -name '.#*' | $(XARGS) rm -rf
+ 	rm -rf \
+-		$(1)/boot \
+ 		$(1)/tmp/* \
+ 		$(1)/lib/apk/db/*.post-install* \
+ 		$(1)/usr/lib/opkg/info/*.postinst* \
